@@ -190,6 +190,19 @@ export default function HomeScreen({ onNavigate }) {
           </div>
           <span className="ml-auto text-purple-400 text-2xl">›</span>
         </button>
+
+        {/* AI Chat */}
+        <button
+          onClick={() => onNavigate('aichat')}
+          className="min-h-[90px] bg-gradient-to-r from-amber-600 to-orange-800 rounded-3xl p-5 flex items-center gap-4 border border-amber-500/30 active:scale-95 transition-transform"
+        >
+          <span className="text-5xl">🤖</span>
+          <div className="text-left">
+            <p className="text-white font-black text-xl leading-tight">Habla con IA</p>
+            <p className="text-amber-300 text-sm mt-1">Tutor personal · Real Estate English</p>
+          </div>
+          <span className="ml-auto text-amber-400 text-2xl">›</span>
+        </button>
       </div>
 
       {/* ── Footer ───────────────────────────────────────────────────────────── */}

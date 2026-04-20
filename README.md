@@ -1,7 +1,7 @@
 # English Drive 🚗
 
 Aprende inglés de bienes raíces americano mientras manejas.  
-Metodología ESCUCHAR → REPETIR → GRAMÁTICA con modo manos libres.
+Metodología ESCUCHAR → REPETIR → LEER con modo manos libres.
 
 ---
 
@@ -9,7 +9,7 @@ Metodología ESCUCHAR → REPETIR → GRAMÁTICA con modo manos libres.
 
 - **Fase 1 — Solo Escucha**: Auto-play con voz americana, 3 repeticiones por oración, pantalla grande
 - **Fase 2 — Repite Conmigo**: Pronunciación con micrófono, comparación palabra por palabra, algoritmo SM-2
-- **Fase 3 — Gramática**: Fill in the blank con explicación de la regla gramatical
+- **Fase 3 — Lectura**: Fill in the blank con explicación de la regla gramatical
 - **50 oraciones** de bienes raíces en 5 grupos temáticos
 - **SM-2** (SuperMemo 2) para repetición espaciada inteligente
 - **Modo manos libres**: botones enormes (80px+), fuente 28px+
@@ -103,7 +103,7 @@ english-drive/
         ├── HomeScreen.jsx      # Dashboard con estadísticas
         ├── Phase1Listen.jsx    # Modo escucha (manos libres)
         ├── Phase2Speak.jsx     # Pronunciación con micrófono
-        └── Phase3Grammar.jsx   # Gramática interactiva
+        └── Phase3Grammar.jsx   # Lectura interactiva
 ```
 
 ---

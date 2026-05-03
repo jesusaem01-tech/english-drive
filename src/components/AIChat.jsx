@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { getStats } from '../utils/storage.js'
+import { askSarah } from '../utils/elevenlabs.js'
 import { sentences } from '../data/sentences.js'
 
 const DEV_MODE = true
@@ -24,10 +25,10 @@ const PRACTICE_SENTENCES = [
   'Let me answer any questions you may have.',
 ]
 
-function buildSystemPrompt(name, totalMastered, streak) {
-  const firstSentence = PRACTICE_SENTENCES[0].replace('NAME', name)
-  const sentenceList = PRACTICE_SENTENCES
-    .map((s, i) => `${i + 1}. ${s.replace('NAME', name)}`)
+function buildSystemPrompt(name, totalMastered, streak, sentencesToUse) {
+  const firstSentence = sentencesToUse[0].english
+  const sentenceList = sentencesToUse
+    .map((s, i) => `${i + 1}. ${s.english}`)
     .join('\n')
 
   return `IMPORTANT: Always use exactly "Repeat after me:" before every sentence to practice. Never say "Repite" or "Repite conmigo". Always in English as a native American tutor.
@@ -43,6 +44,8 @@ STUDENT CONTEXT:
 
 LANGUAGE RULE: If student writes in Spanish respond in Spanish for instructions but always ask them to repeat in English. If student writes in English respond in English.
 
+UNCLEAR INPUT RULE: If the student message looks like a bad transcription, contains random letters, makes no sense in English or Spanish, or seems like mic noise, do NOT correct pronunciation. Instead say kindly in Spanish: "No te escuché bien, ¿puedes repetirlo más despacio?" Then repeat the current sentence with Repeat after me:.
+
 TEACHING FLOW: Practice one sentence at a time from the list below in order. Say "repeat after me:" then the sentence. If correct celebrate and move to next. If incorrect correct gently and ask to repeat. Max 2 sentences per response. Never use caps or bullet points.
 
 SENTENCES TO PRACTICE IN ORDER:
@@ -51,8 +54,8 @@ ${sentenceList}
 FIRST MESSAGE: Greet ${name} by name in Spanish. Mention their progress (${totalMastered} sentences mastered, ${streak}-day streak). Ask them to repeat: ${firstSentence}`
 }
 
-const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition || null
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+const hasMic = !!(navigator.mediaDevices?.getUserMedia)
 
 const cleanText = (text) => {
   return text
@@ -76,14 +79,14 @@ const speak = (text) => {
                 voices.find(v => v.lang.startsWith('es'))
       if (v) utter.voice = v
       utter.lang  = 'es-US'
-      utter.rate  = 1.15
+      utter.rate  = isIOS ? 0.9 : 1.15
       utter.pitch = 1.1
     } else {
       const v = voices.find(v => v.name === 'Google UK English Female') ||
                 voices.find(v => v.name === 'Google US English')
       if (v) utter.voice = v
       utter.lang  = 'en-US'
-      utter.rate  = 1.05
+      utter.rate  = isIOS ? 0.75 : 1.05
       utter.pitch = 1.1
     }
     window.speechSynthesis.speak(utter)
@@ -332,24 +335,50 @@ export default function AIChat({ onBack }) {
   const [showMicHint,   setShowMicHint]   = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [repeatPhrase,  setRepeatPhrase]  = useState(null)
-  const [showBoard,     setShowBoard]     = useState(false)
+  const [showBoard,      setShowBoard]      = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
 
   const [credits, setCredits] = useState(() => {
     localStorage.setItem(CREDITS_KEY, String(CREDITS_INITIAL))
     return CREDITS_INITIAL
   })
 
-  const isProcessing       = useRef(false)
-  const currentSentenceRef = useRef('')
-  const shouldShowBoardRef = useRef(false)
-  const bottomRef      = useRef(null)
-  const recognitionRef = useRef(null)
-  const speakTimerRef  = useRef(null)
+  const isProcessing         = useRef(false)
+  const currentSentenceRef   = useRef('')
+  const shuffledSentencesRef = useRef(null)
+  if (shuffledSentencesRef.current === null) {
+    const arr = [...sentences]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    shuffledSentencesRef.current = arr
+  }
+  const bottomRef        = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef   = useRef([])
+  const streamRef        = useRef(null)
+  const speakTimerRef    = useRef(null)
   const messagesRef    = useRef(messages)
   const creditsRef     = useRef(credits)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => { creditsRef.current  = credits  }, [credits])
+
+  useEffect(() => {
+    const unlock = () => {
+      const u = new SpeechSynthesisUtterance('')
+      window.speechSynthesis.speak(u)
+      document.removeEventListener('touchstart', unlock)
+      document.removeEventListener('click', unlock)
+    }
+    document.addEventListener('touchstart', unlock)
+    document.addEventListener('click', unlock)
+    return () => {
+      document.removeEventListener('touchstart', unlock)
+      document.removeEventListener('click', unlock)
+    }
+  }, [])
 
   useEffect(() => {
     const showVoices = () => {
@@ -366,16 +395,17 @@ export default function AIChat({ onBack }) {
 
   useEffect(() => {
     return () => {
-      try { recognitionRef.current?.stop() } catch {}
+      try { mediaRecorderRef.current?.stop() } catch {}
+      streamRef.current?.getTracks().forEach(t => t.stop())
       if (speakTimerRef.current) clearTimeout(speakTimerRef.current)
     }
   }, [])
 
   const limitReached = !DEV_MODE && credits <= 0
 
-  const avatarState = isListening ? 'listening'
-                    : isLoading   ? 'thinking'
-                    : isSpeaking  ? 'speaking'
+  const avatarState = isListening                  ? 'listening'
+                    : isTranscribing || isLoading  ? 'thinking'
+                    : isSpeaking                   ? 'speaking'
                     : 'idle'
 
   // ── Confirmar nombre desde onboarding ──────────────────────────────────────
@@ -390,6 +420,8 @@ export default function AIChat({ onBack }) {
     if (!text || !text.trim()) return
     if (isProcessing.current) return
     isProcessing.current = true
+    clearTimeout(speakTimerRef.current)
+    speakTimerRef.current = null
     setShowBoard(false)
     const trimmed = text.trim()
     if (isLoading || (!DEV_MODE && creditsRef.current <= 0)) { isProcessing.current = false; return }
@@ -407,37 +439,35 @@ export default function AIChat({ onBack }) {
         !(i === 0 && updatedMessages[0].role === 'assistant')
       )
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const stats = getStats()
+      const system = buildSystemPrompt(userName, stats.totalMastered, stats.streak, shuffledSentencesRef.current)
+      const res = await fetch('http://localhost:3000/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 150,
-          system: buildSystemPrompt(
-            localStorage.getItem(NAME_KEY) || 'estudiante',
-            getStats().totalMastered || 0,
-            getStats().streak || 0
-          ),
-          messages: apiMessages,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages, system }),
       })
 
       console.log('Status:', res.status)
       console.log('OK:', res.ok)
-      const data = await res.json()
-      console.log('Data completa:', JSON.stringify(data))
+
+      const audioBlob = await res.blob()
 
       if (!res.ok) {
-        console.error('Error API:', data)
-        throw new Error(data.error?.message || `HTTP ${res.status}`)
+        console.error('Error API:', res.status)
+        throw new Error(`HTTP ${res.status}`)
       }
 
-      const aiText = data.content[0].text
+      const b64 = res.headers.get('x-sarah-response-b64')
+      let aiText = ''
+      if (b64) {
+        try {
+          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+          aiText = new TextDecoder('utf-8').decode(bytes)
+        } catch { aiText = '' }
+      } else {
+        aiText = res.headers.get('X-Sarah-Response') || ''
+      }
+      console.log('[AIChat] aiText recibido:', JSON.stringify(aiText.slice(0, 80)))
       setMessages(prev => [...prev, { role: 'assistant', content: aiText }])
 
       if (/perfecto|excelente|perfect|excellent/i.test(aiText)) {
@@ -445,24 +475,28 @@ export default function AIChat({ onBack }) {
         setTimeout(() => setShowCelebration(false), 2000)
       }
 
-      const hasRepeatMarker = aiText.includes('Repeat after me:') ||
-        aiText.includes('Repite:') ||
-        aiText.includes('Repite conmigo:') ||
-        aiText.includes('Try again:')
-      console.log('showBoard: true, hasRepeatMarker:', hasRepeatMarker)
-      shouldShowBoardRef.current = true
+      // Marcadores primarios: devuelven la línea completa después del marcador
+      const PRIMARY_MARKERS = ['Repeat after me:', 'Try again:', 'Repite conmigo:', 'Repite:']
+      // Patrones de corrección en español + extracción de la frase inglesa a corregir
+      const CORRECTION_PATTERNS = [
+        { re: /falt[oó]\s+(?:decir\s+)?(.+?)(?=[.!?\n]|$)/i },
+        { re: /missing\s*:?\s*([a-zA-Z].+?)(?=[.!?\n]|$)/i  },
+      ]
+
+      const primaryMarker = PRIMARY_MARKERS.find(m => aiText.includes(m))
+      const correctionMatch = !primaryMarker &&
+        CORRECTION_PATTERNS.reduce((found, p) => found || aiText.match(p.re), null)
+
+      const hasRepeatMarker = !!(primaryMarker || correctionMatch)
+      console.log('[AIChat] hasRepeatMarker:', hasRepeatMarker, primaryMarker || (correctionMatch && correctionMatch[0]))
 
       const extractPhrase = (text) => {
-        const markers = ['Repeat after me:', 'Repite conmigo:', 'Repite:', 'Try again:']
-        for (const marker of markers) {
-          const idx = text.indexOf(marker)
-          if (idx !== -1) {
-            const after = text.substring(idx + marker.length).trim()
-            const clean = after.replace(/\*\*/g, '').replace(/["""]/g, '')
-            const line  = clean.split('\n')[0].trim()
-            const match = line.match(/^(.+?[.!?])\s*/)
-            return match ? match[1].trim() : line
-          }
+        if (primaryMarker) {
+          const after = text.substring(text.indexOf(primaryMarker) + primaryMarker.length).trim()
+          return after.replace(/\*\*/g, '').replace(/["""]/g, '').split('\n')[0].trim()
+        }
+        if (correctionMatch) {
+          return correctionMatch[1].replace(/\*\*/g, '').replace(/["""]/g, '').trim()
         }
         return ''
       }
@@ -470,11 +504,10 @@ export default function AIChat({ onBack }) {
       if (hasRepeatMarker) {
         const phrase = extractPhrase(aiText)
         if (phrase) {
-          const isFullSentence = phrase.split(' ').length >= 5
-          if (isFullSentence) {
+          if (phrase.split(' ').length >= 5) {
             currentSentenceRef.current = phrase
           }
-          setRepeatPhrase(currentSentenceRef.current || phrase)
+          setRepeatPhrase(phrase)
         }
       } else {
         setRepeatPhrase(currentSentenceRef.current || aiText.replace(/\*\*/g, '').replace(/\*/g, '').trim())
@@ -484,14 +517,34 @@ export default function AIChat({ onBack }) {
       setCredits(newCredits)
       localStorage.setItem(CREDITS_KEY, String(newCredits))
 
-      const utter = speak(cleanText(aiText))
-      utter.onend = () => {
-        setShowMicHint(true)
-        if (shouldShowBoardRef.current) setShowBoard(true)
+      setIsSpeaking(true)
+      const audioUrl = URL.createObjectURL(audioBlob)
+      const audio = new Audio(audioUrl)
+
+      if (hasRepeatMarker) {
+        const markerIdx = primaryMarker
+          ? aiText.indexOf(primaryMarker)
+          : (correctionMatch?.index ?? 0)
+        const ratio = markerIdx / aiText.length
+        audio.onloadedmetadata = () => {
+          const delay = Math.max(0, ratio * audio.duration * 1000)
+          speakTimerRef.current = setTimeout(() => {
+            speakTimerRef.current = null
+            setShowBoard(true)
+          }, delay)
+        }
       }
 
-      setIsSpeaking(true)
-      speakTimerRef.current = setTimeout(() => setIsSpeaking(false), 3000)
+      const finishAudio = () => {
+        clearTimeout(speakTimerRef.current)
+        speakTimerRef.current = null
+        setIsSpeaking(false)
+        setShowMicHint(true)
+        if (hasRepeatMarker) setShowBoard(true)
+      }
+      audio.onended = finishAudio
+      audio.onerror = finishAudio
+      audio.play().catch(finishAudio)
     } catch (err) {
       console.error('Error completo:', err)
       setMessages(prev => [...prev, {
@@ -512,57 +565,72 @@ export default function AIChat({ onBack }) {
     sendMessage(text)
   }
 
-  // ── Micrófono — auto-envía al terminar de hablar ───────────────────────────
-  function startListening() {
-    if (!SpeechRecognition) {
-      setMicError('Tu navegador no soporta micrófono. Usa Chrome.')
+  // ── Micrófono — graba con MediaRecorder y transcribe con Whisper ─────────
+  async function startListening() {
+    if (!hasMic) {
+      setMicError('Tu navegador no soporta grabación de audio.')
       return
     }
+
+    // Si ya está grabando, detener
     if (isListening) {
-      try { recognitionRef.current?.stop() } catch {}
+      mediaRecorderRef.current?.stop()
       return
     }
 
     setMicError('')
     setShowMicHint(false)
+    clearTimeout(speakTimerRef.current)
+    speakTimerRef.current = null
     setIsListening(true)
 
-    const recognition = new SpeechRecognition()
-    recognition.lang            = 'en-US'
-    recognition.continuous      = true
-    recognition.interimResults  = true
-    recognition.maxAlternatives = 1
-
-    let silenceTimer = null
-    let finalTranscript = ''
-
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript
-        }
-      }
-      clearTimeout(silenceTimer)
-      silenceTimer = setTimeout(() => {
-        recognition.stop()
-        if (finalTranscript.trim()) {
-          setIsListening(false)
-          sendMessage(finalTranscript.trim())
-        }
-      }, 2000)
-    }
-
-    recognition.onerror = (event) => {
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (err) {
       setIsListening(false)
-      if (event.error === 'not-allowed')  setMicError('Permiso de micrófono denegado.')
-      else if (event.error === 'no-speech') setMicError('No se detectó voz. Intenta de nuevo.')
-      else setMicError('Error de micrófono. Intenta de nuevo.')
+      setMicError(
+        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+          ? 'Permiso de micrófono denegado.'
+          : 'Error de micrófono. Intenta de nuevo.'
+      )
+      return
     }
 
-    recognition.onend = () => setIsListening(false)
+    streamRef.current    = stream
+    audioChunksRef.current = []
+    const recorder = new MediaRecorder(stream)
+    mediaRecorderRef.current = recorder
 
-    recognitionRef.current = recognition
-    recognition.start()
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunksRef.current.push(e.data)
+    }
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop())
+      setIsListening(false)
+
+      const mimeType = recorder.mimeType || 'audio/webm'
+      const blob = new Blob(audioChunksRef.current, { type: mimeType })
+      if (!blob.size) return
+
+      setIsTranscribing(true)
+      try {
+        const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm'
+        const formData = new FormData()
+        formData.append('audio', blob, `audio.${ext}`)
+        const res  = await fetch('http://localhost:3000/transcribe', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (data.text?.trim()) sendMessage(data.text.trim())
+        else setMicError('No se detectó voz. Intenta de nuevo.')
+      } catch {
+        setMicError('Error al transcribir. Intenta de nuevo.')
+      } finally {
+        setIsTranscribing(false)
+      }
+    }
+
+    recorder.start()
   }
 
   // ── Onboarding: pedir nombre ────────────────────────────────────────────────
@@ -689,15 +757,20 @@ export default function AIChat({ onBack }) {
           )}
           {isListening && (
             <p className="text-center text-sm text-red-300 font-bold mb-2 animate-pulse">
-              🎤 Escuchando... habla ahora
+              🎤 Escuchando... toca de nuevo para enviar
+            </p>
+          )}
+          {isTranscribing && (
+            <p className="text-center text-sm text-[#A8C8FF]/80 font-bold mb-2 animate-pulse">
+              ⏳ Transcribiendo...
             </p>
           )}
 
           <div className="flex gap-3">
-            {SpeechRecognition && (
+            {hasMic && (
               <button
                 onClick={startListening}
-                disabled={isLoading}
+                disabled={isLoading || isTranscribing}
                 className={`w-16 min-h-[64px] rounded-2xl flex items-center justify-center text-2xl
                             flex-shrink-0 active:scale-95 transition-all disabled:opacity-40 ${
                   isListening
@@ -779,36 +852,12 @@ export default function AIChat({ onBack }) {
                   {match.phonetic}
                 </p>
               )}
-              {SpeechRecognition && (
+              {hasMic && (
                 <button
-                  onClick={() => {
-                    setShowMicHint(false)
-                    setIsListening(true)
-                    const recognition = new SpeechRecognition()
-                    recognition.lang           = 'en-US'
-                    recognition.continuous     = true
-                    recognition.interimResults = true
-                    let silenceTimer = null
-                    let finalTranscript = ''
-                    recognition.onresult = (event) => {
-                      for (let i = event.resultIndex; i < event.results.length; i++) {
-                        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript
-                      }
-                      clearTimeout(silenceTimer)
-                      silenceTimer = setTimeout(() => {
-                        recognition.stop()
-                        if (finalTranscript.trim()) {
-                          setIsListening(false)
-                          sendMessage(finalTranscript.trim())
-                        }
-                      }, 2000)
-                    }
-                    recognition.onerror = () => setIsListening(false)
-                    recognition.onend   = () => setIsListening(false)
-                    recognition.start()
-                  }}
+                  onClick={startListening}
+                  disabled={isTranscribing}
                   className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto
-                    active:scale-95 transition-all ${
+                    active:scale-95 transition-all disabled:opacity-40 ${
                     isListening
                       ? 'bg-red-600 border-2 border-red-400 animate-pulse'
                       : 'bg-[#F0B429] text-[#0A1628]'

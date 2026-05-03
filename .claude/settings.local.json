@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir C:\\\\Users\\\\USUARIO\\\\Desktop\\\\Mi Negocio *)",
+      "Read(//mnt/c/Users/USUARIO/**)",
+      "Read(//c/Users/USUARIO/Desktop/**)",
+      "Bash(npm install *)"
+    ]
+  }
+}

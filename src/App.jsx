@@ -4,9 +4,13 @@ import Phase1Listen from './components/Phase1Listen.jsx'
 import Phase2Speak from './components/Phase2Speak.jsx'
 import Phase3Grammar from './components/Phase3Grammar.jsx'
 import AIChat from './components/AIChat.jsx'
+import DailyLifePhase1Prototype from './prototypes/DailyLifePhase1Prototype.jsx'
 
 export default function App() {
-  const [screen, setScreen] = useState('home')
+  const [screen, setScreen] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('screen') || 'home'
+  })
   const [guestId, setGuestId] = useState(null)
 
   useEffect(() => {
@@ -66,6 +70,9 @@ export default function App() {
       {screen === 'phase2' && <Phase2Speak onBack={() => navigate('home')} guestId={guestId} />}
       {screen === 'phase3' && <Phase3Grammar onBack={() => navigate('home')} guestId={guestId} />}
       {screen === 'aichat' && <AIChat onBack={() => navigate('home')} guestId={guestId} />}
+      {screen === 'prototype-daily-life-phase1' && (
+        <DailyLifePhase1Prototype onBack={() => navigate('home')} guestId={guestId} />
+      )}
     </div>
   )
 }

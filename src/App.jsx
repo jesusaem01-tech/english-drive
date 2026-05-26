@@ -5,6 +5,7 @@ import Phase2Speak from './components/Phase2Speak.jsx'
 import Phase3Grammar from './components/Phase3Grammar.jsx'
 import AIChat from './components/AIChat.jsx'
 import DailyLifePhase1Prototype from './prototypes/DailyLifePhase1Prototype.jsx'
+import InitialPhase1ListeningPrototype from './prototypes/InitialPhase1ListeningPrototype.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState(() => {
@@ -72,6 +73,9 @@ export default function App() {
       {screen === 'aichat' && <AIChat onBack={() => navigate('home')} guestId={guestId} />}
       {screen === 'prototype-daily-life-phase1' && (
         <DailyLifePhase1Prototype onBack={() => navigate('home')} guestId={guestId} />
+      )}
+      {screen === 'prototype-initial-phase1' && (
+        <InitialPhase1ListeningPrototype onBack={() => navigate('home')} guestId={guestId} />
       )}
     </div>
   )

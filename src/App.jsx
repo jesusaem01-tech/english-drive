@@ -6,12 +6,29 @@ import Phase3Grammar from './components/Phase3Grammar.jsx'
 import AIChat from './components/AIChat.jsx'
 import DailyLifePhase1Prototype from './prototypes/DailyLifePhase1Prototype.jsx'
 import InitialPhase1ListeningPrototype from './prototypes/InitialPhase1ListeningPrototype.jsx'
+import LearningPoolPrototype from './prototypes/LearningPoolPrototype.jsx'
+import MyPhrasesPrototype from './prototypes/MyPhrasesPrototype.jsx'
+import HomeArchitecturePrototype from './prototypes/HomeArchitecturePrototype.jsx'
+import Phase2PronunciationTutorPrototype from './prototypes/Phase2PronunciationTutorPrototype.jsx'
+
+const PROTOTYPE_HASH_ROUTES = {
+  '#/prototype-initial-phase1': 'prototype-initial-phase1',
+  '#/prototype-learning-pool': 'prototype-learning-pool',
+  '#/prototype-my-phrases': 'prototype-my-phrases',
+  '#/prototype-home-architecture': 'prototype-home-architecture',
+  '#/prototype-phase2-pronunciation': 'prototype-phase2-pronunciation',
+}
+
+function getInitialScreen() {
+  const hashScreen = PROTOTYPE_HASH_ROUTES[window.location.hash]
+  if (hashScreen) return hashScreen
+
+  const params = new URLSearchParams(window.location.search)
+  return params.get('screen') || 'home'
+}
 
 export default function App() {
-  const [screen, setScreen] = useState(() => {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('screen') || 'home'
-  })
+  const [screen, setScreen] = useState(getInitialScreen)
   const [guestId, setGuestId] = useState(null)
 
   useEffect(() => {
@@ -76,6 +93,18 @@ export default function App() {
       )}
       {screen === 'prototype-initial-phase1' && (
         <InitialPhase1ListeningPrototype onBack={() => navigate('home')} guestId={guestId} />
+      )}
+      {screen === 'prototype-learning-pool' && (
+        <LearningPoolPrototype onBack={() => navigate('home')} guestId={guestId} />
+      )}
+      {screen === 'prototype-my-phrases' && (
+        <MyPhrasesPrototype onBack={() => navigate('home')} guestId={guestId} />
+      )}
+      {screen === 'prototype-home-architecture' && (
+        <HomeArchitecturePrototype onBack={() => navigate('home')} guestId={guestId} />
+      )}
+      {screen === 'prototype-phase2-pronunciation' && (
+        <Phase2PronunciationTutorPrototype onBack={() => navigate('home')} guestId={guestId} />
       )}
     </div>
   )

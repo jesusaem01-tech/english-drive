@@ -35,6 +35,74 @@ const CUSTOM_PHRASES_KEY = 'habloo_custom_phrases'
 const CUSTOM_PHRASES_CHANGED_EVENT = 'habloo_custom_phrases_changed'
 const MASTERED_PHRASES_KEY = 'habloo_mastered_phrase_ids'
 const CORE_UNITS_KEY = 'habloo_core_units_known'
+const INVALID_ENGLISH_PATTERNS = [
+  /habloo will create/i,
+  /^frase\s+\d+/i,
+  /^placeholder$/i,
+  /natural english version here/i,
+]
+const NATURAL_FALLBACK_SENTENCES = [
+  ['I need some water.', 'Necesito un poco de agua.', 'ai nid som uoder'],
+  ['I want to practice English.', 'Quiero practicar ingles.', 'ai want tu praktis inglish'],
+  ['Can you help me?', 'Puedes ayudarme?', 'kan iu jelp mi'],
+  ['I have to go now.', 'Tengo que irme ahora.', 'ai jav tu gou nau'],
+  ['I am learning little by little.', 'Estoy aprendiendo poco a poco.', 'ai am lerning litol bai litol'],
+  ['I need to make a call.', 'Necesito hacer una llamada.', 'ai nid tu meik a col'],
+  ['I want to understand better.', 'Quiero entender mejor.', 'ai want tu anderstand beder'],
+  ['Can you say that again?', 'Puedes decir eso otra vez?', 'kan iu sei dat agen'],
+  ['I have a meeting today.', 'Tengo una reunion hoy.', 'ai jav a miring tudei'],
+  ['I need to buy some food.', 'Necesito comprar comida.', 'ai nid tu bai som fud'],
+  ['I am ready to start.', 'Estoy listo para empezar.', 'ai am redi tu start'],
+  ['Please speak more slowly.', 'Por favor habla mas despacio.', 'plis spik mor slouli'],
+  ['I need more time.', 'Necesito mas tiempo.', 'ai nid mor taim'],
+  ['I can do it today.', 'Puedo hacerlo hoy.', 'ai kan du it tudei'],
+  ['I want to learn this phrase.', 'Quiero aprender esta frase.', 'ai want tu lern dis freiz'],
+  ['That sounds good to me.', 'Eso me parece bien.', 'dat saunds gud tu mi'],
+  ['I need a simple example.', 'Necesito un ejemplo simple.', 'ai nid a simpel egzampol'],
+  ['I can repeat it now.', 'Puedo repetirlo ahora.', 'ai kan ripit it nau'],
+  ['I want to speak clearly.', 'Quiero hablar claramente.', 'ai want tu spik clirli'],
+  ['This is useful for me.', 'Esto es util para mi.', 'dis is iusful for mi'],
+  ['I need to check my schedule.', 'Necesito revisar mi horario.', 'ai nid tu chek mai skedyul'],
+  ['I want to ask a question.', 'Quiero hacer una pregunta.', 'ai want tu ask a kuestchon'],
+  ['Can we start again?', 'Podemos empezar otra vez?', 'kan ui start agen'],
+  ['I am listening carefully.', 'Estoy escuchando con cuidado.', 'ai am lisening kerfuli'],
+  ['I need a little help.', 'Necesito un poco de ayuda.', 'ai nid a litol jelp'],
+  ['I have a question for you.', 'Tengo una pregunta para ti.', 'ai jav a kuestchon for iu'],
+  ['I want to try again.', 'Quiero intentar otra vez.', 'ai want tu trai agen'],
+  ['I am getting better every day.', 'Estoy mejorando cada dia.', 'ai am geting beder evri dei'],
+  ['Can you repeat the last part?', 'Puedes repetir la ultima parte?', 'kan iu ripit de last part'],
+  ['I need to write this down.', 'Necesito escribir esto.', 'ai nid tu rait dis daun'],
+  ['I want to say it correctly.', 'Quiero decirlo correctamente.', 'ai want tu sei it korektli'],
+  ['This word is new for me.', 'Esta palabra es nueva para mi.', 'dis uerd is niu for mi'],
+  ['I need to practice more.', 'Necesito practicar mas.', 'ai nid tu praktis mor'],
+  ['Can you give me an example?', 'Puedes darme un ejemplo?', 'kan iu giv mi an egzampol'],
+  ['I am ready for the next one.', 'Estoy listo para la siguiente.', 'ai am redi for de nekst uan'],
+  ['I want to remember this.', 'Quiero recordar esto.', 'ai want tu rimember dis'],
+  ['I can understand the sentence.', 'Puedo entender la frase.', 'ai kan anderstand de sentens'],
+  ['I need to speak slowly.', 'Necesito hablar despacio.', 'ai nid tu spik slouli'],
+  ['Can you correct me?', 'Puedes corregirme?', 'kan iu korekt mi'],
+  ['I want to use this today.', 'Quiero usar esto hoy.', 'ai want tu ius dis tudei'],
+  ['I need a short break.', 'Necesito un descanso corto.', 'ai nid a short breik'],
+  ['I can answer that question.', 'Puedo responder esa pregunta.', 'ai kan anser dat kuestchon'],
+  ['I want to keep learning.', 'Quiero seguir aprendiendo.', 'ai want tu kip lerning'],
+  ['Can you speak in English?', 'Puedes hablar en ingles?', 'kan iu spik in inglish'],
+  ['I need to hear it again.', 'Necesito escucharlo otra vez.', 'ai nid tu jir it agen'],
+  ['I am practicing my pronunciation.', 'Estoy practicando mi pronunciacion.', 'ai am praktising mai pronansieishon'],
+  ['I want to feel confident.', 'Quiero sentirme seguro.', 'ai want tu fil confident'],
+  ['Can we practice this sentence?', 'Podemos practicar esta frase?', 'kan ui praktis dis sentens'],
+  ['I need to learn new words.', 'Necesito aprender palabras nuevas.', 'ai nid tu lern niu uerds'],
+  ['I can say it more clearly.', 'Puedo decirlo mas claramente.', 'ai kan sei it mor clirli'],
+  ['I want to improve my English.', 'Quiero mejorar mi ingles.', 'ai want tu impruv mai inglish'],
+  ['Can you explain that?', 'Puedes explicar eso?', 'kan iu eksplein dat'],
+  ['I need to focus now.', 'Necesito concentrarme ahora.', 'ai nid tu fokus nau'],
+  ['I am doing my best.', 'Estoy haciendo mi mejor esfuerzo.', 'ai am duing mai best'],
+  ['I want another example.', 'Quiero otro ejemplo.', 'ai want anoder egzampol'],
+  ['Can you slow down?', 'Puedes ir mas despacio?', 'kan iu slou daun'],
+  ['I need to remember the sound.', 'Necesito recordar el sonido.', 'ai nid tu rimember de saund'],
+  ['I can practice after work.', 'Puedo practicar despues del trabajo.', 'ai kan praktis after uerk'],
+  ['I want to speak naturally.', 'Quiero hablar naturalmente.', 'ai want tu spik nachurali'],
+  ['Can you show me the phrase?', 'Puedes mostrarme la frase?', 'kan iu shou mi de freiz'],
+]
 
 function getStoredLevel() {
   return localStorage.getItem('habloo_level') || 'No estoy seguro'
@@ -149,34 +217,12 @@ function getInterestCategoryConfig(label) {
   }
 }
 
-function createInterestFallback(label, category) {
-  const cleanLabel = label || 'tu interés'
-  const templates = [
-    ['I want to practice English.', 'Quiero practicar inglés.', 'ai want tu práktis ínglish'],
-    [`This topic is important to me.`, 'Este tema es importante para mí.', 'dis tópik is impórtant tu mi'],
-    ['I can learn useful words.', 'Puedo aprender palabras útiles.', 'ai kan lern iúsful uerds'],
-    [`I want to speak with confidence.`, 'Quiero hablar con confianza.', 'ai want tu spik wid kánfidens'],
-    [`Let's practice one sentence at a time.`, 'Practiquemos una frase a la vez.', 'lets práktis uan séntens at a taim'],
-  ]
-
-  templates.splice(
-    0,
-    5,
-    [`I want to practice English for ${cleanLabel}.`, `Quiero practicar ingles para ${cleanLabel}.`, `ai want tu praktis inglish for ${cleanLabel}`],
-    [`This ${cleanLabel} topic is important to me.`, `Este tema de ${cleanLabel} es importante para mi.`, `dis ${cleanLabel} topik is important tu mi`],
-    [`I can learn useful ${cleanLabel} words.`, `Puedo aprender palabras utiles de ${cleanLabel}.`, `ai kan lern iusful ${cleanLabel} uerds`],
-    [`I want to speak about ${cleanLabel} with confidence.`, `Quiero hablar sobre ${cleanLabel} con confianza.`, `ai want tu spik abaut ${cleanLabel} wid kanfidens`],
-    [`Let's practice one ${cleanLabel} sentence at a time.`, `Practiquemos una frase de ${cleanLabel} a la vez.`, `lets praktis uan ${cleanLabel} sentens at a taim`],
+function createInterestFallback(label, category, setIndex = 0) {
+  const cleanLabel = label || 'tu interes'
+  const startIndex = (setIndex * TARGET_PER_CATEGORY) % NATURAL_FALLBACK_SENTENCES.length
+  const templates = NATURAL_FALLBACK_SENTENCES.map((_, index) =>
+    NATURAL_FALLBACK_SENTENCES[(startIndex + index) % NATURAL_FALLBACK_SENTENCES.length]
   )
-
-  while (templates.length < TARGET_PER_CATEGORY) {
-    const nextNumber = templates.length + 1
-    templates.push([
-      `I can practice ${cleanLabel} phrase ${nextNumber}.`,
-      `Puedo practicar la frase ${nextNumber} de ${cleanLabel}.`,
-      `ai kan praktis ${cleanLabel} freiz ${nextNumber}`,
-    ])
-  }
 
   return templates.map(([english, spanish, phonetic], index) => ({
     id: `${category}-fallback-${index + 1}`,
@@ -190,7 +236,6 @@ function createInterestFallback(label, category) {
     scene: cleanLabel,
   }))
 }
-
 function normalizeWords(text) {
   return String(text || '')
     .toLowerCase()
@@ -208,6 +253,68 @@ function normalizeSentenceKey(text) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\p{L}\p{N}'\s]/gu, ' ')
     .replace(/\s+/g, ' ')
+}
+
+function cleanEnglishText(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getRealWordCount(text) {
+  return cleanEnglishText(text)
+    .split(/\s+/)
+    .filter((word) => /[a-z]/i.test(word))
+    .length
+}
+
+function hasInvalidPattern(text) {
+  return INVALID_ENGLISH_PATTERNS.some((pattern) => pattern.test(cleanEnglishText(text)))
+}
+
+function endsWithArtificialLabel(text, extraLabels = []) {
+  const normalizedText = normalizeSentenceKey(text)
+  const labels = [
+    ...Object.values(CATEGORY_LABELS),
+    ...extraLabels,
+    'Vida diaria',
+    'Trabajo',
+    'Viajes',
+    'Familia',
+    'Fitness',
+    'Restaurante',
+    'Pareja',
+    'Tecnologia',
+    'Tecnología',
+    'Bienes raices',
+    'Bienes raíces',
+    'Real Estate',
+  ]
+
+  return labels.some((label) => {
+    const normalizedLabel = normalizeSentenceKey(label)
+    return normalizedLabel && normalizedText.endsWith(` ${normalizedLabel}`)
+  })
+}
+
+function isValidStudyText(text, extraLabels = []) {
+  const cleanText = cleanEnglishText(text)
+  if (!cleanText) return false
+  if (hasInvalidPattern(cleanText)) return false
+  if (getRealWordCount(cleanText) < 2) return false
+  if (endsWithArtificialLabel(cleanText, extraLabels)) return false
+  return true
+}
+
+function getCustomEnglishText(phrase) {
+  return cleanEnglishText(
+    phrase?.english ||
+    phrase?.english_sentence ||
+    phrase?.text ||
+    phrase?.phrase ||
+    phrase?.sentence ||
+    ''
+  )
 }
 
 function dedupeSentences(items) {
@@ -232,14 +339,19 @@ function getStoredArray(key) {
 
 function getCustomPhraseSet() {
   return getStoredArray(CUSTOM_PHRASES_KEY)
-    .filter((phrase) => phrase?.english)
     .map((phrase, index) => ({
-      id: `custom-phrase-${phrase.id || index + 1}`,
+      phrase,
+      index,
+      english: getCustomEnglishText(phrase),
+    }))
+    .filter(({ english }) => isValidStudyText(english))
+    .map((phrase, index) => ({
+      id: `custom-phrase-${phrase.phrase.id || phrase.index || index + 1}`,
       category: 'custom_phrases',
       category_label: 'Mis Frases',
       sentence_en: phrase.english,
-      translation_es: phrase.spanish || '',
-      phonetic_es: phrase.pronunciation || '',
+      translation_es: phrase.phrase.spanish || '',
+      phonetic_es: phrase.phrase.pronunciation || '',
       pronunciation: '',
       ipa: '',
       scene: 'Mis Frases',
@@ -312,11 +424,12 @@ function applyPrototypeFallbackContractions(sentence) {
 }
 
 function normalizeBackendSentence(sentence, category, label = CATEGORY_LABELS[category]) {
+  const sentenceText = cleanEnglishText(sentence.sentence_en || sentence.english || sentence.text || sentence.phrase || sentence.sentence)
   return {
-    id: `${category}-${sentence.id || sentence.sentence_en}`,
+    id: `${category}-${sentence.id || sentenceText}`,
     category,
     category_label: label || CATEGORY_LABELS[category] || category,
-    sentence_en: sentence.sentence_en,
+    sentence_en: sentenceText,
     translation_es: sentence.translation_es || sentence.sentence_es || '',
     phonetic_es: sentence.phonetic_es || '',
     pronunciation: sentence.pronunciation || '',
@@ -366,10 +479,10 @@ async function loadCategorySet(category, fallbackItems = [], label = CATEGORY_LA
     })
     const normalized = items
       .map((sentence) => normalizeBackendSentence(sentence, category, label))
-      .filter((sentence) => sentence.sentence_en)
+      .filter((sentence) => isValidStudyText(sentence.sentence_en, [label]))
 
     return ensureTargetSentenceCount(
-      normalized.length > 0 ? normalized : fallbackItems,
+      [...normalized, ...fallbackItems],
       category,
       label
     )
@@ -379,7 +492,14 @@ async function loadCategorySet(category, fallbackItems = [], label = CATEGORY_LA
 }
 
 function ensureTargetSentenceCount(items, category, label) {
-  const cleanItems = dedupeSentences(items.filter((item) => item?.sentence_en))
+  const cleanItems = dedupeSentences(
+    items
+      .map((item) => ({
+        ...item,
+        sentence_en: cleanEnglishText(item?.sentence_en),
+      }))
+      .filter((item) => isValidStudyText(item?.sentence_en, [label]))
+  )
   if (!OWNER_MODE) return cleanItems.slice(0, TARGET_PER_CATEGORY)
   const fallbackItems = createInterestFallback(label, category)
   const sourceItems = dedupeSentences([...cleanItems, ...fallbackItems])
@@ -532,8 +652,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       const interestLabels = getStoredInterestLabels()
       const categoryConfigs = interestLabels.map(getInterestCategoryConfig)
       const categorySets = await Promise.all(
-        categoryConfigs.map((config) => {
-          let fallback = createInterestFallback(config.label, config.category)
+        categoryConfigs.map((config, index) => {
+          let fallback = createInterestFallback(config.label, config.category, index)
 
           if (config.fallbackCategory === 'real_estate') {
             fallback = normalizeRealEstateFallback()
@@ -549,10 +669,18 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
       const initialSentences = interleaveSets(categorySets)
       const customPhraseSet = getCustomPhraseSet()
-      const learningSet = dedupeSentences([...initialSentences, ...customPhraseSet])
+      const learningSet = dedupeSentences(
+        [...initialSentences, ...customPhraseSet]
+          .map((sentence) => ({
+            ...sentence,
+            sentence_en: cleanEnglishText(sentence.sentence_en),
+          }))
+          .filter((sentence) => isValidStudyText(sentence.sentence_en, interestLabels))
+      )
+      const validCustomPhraseTotal = learningSet.filter((sentence) => sentence.category === 'custom_phrases').length
       warnMissingPrototypePronunciations(learningSet)
       setSentences(learningSet)
-      setCustomPhraseTotal(customPhraseSet.length)
+      setCustomPhraseTotal(validCustomPhraseTotal)
       setSelectedInterestTotal(categoryConfigs.length)
       setCoreUnitsKnown(calculateKnownCoreUnits(learningSet))
       if (resetSession) {
@@ -572,7 +700,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       setSourceNotes(
         [
           ...categoryConfigs.map((config, index) => `${config.label}: ${categorySets[index]?.length || 0} frases`),
-          ...(customPhraseSet.length > 0 ? [`Mis Frases: ${customPhraseSet.length} frases`] : []),
+          ...(validCustomPhraseTotal > 0 ? [`Mis Frases: ${validCustomPhraseTotal} frases`] : []),
         ]
       )
       setLoading(false)

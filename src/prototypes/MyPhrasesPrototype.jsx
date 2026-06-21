@@ -40,8 +40,8 @@ function processPhrase(spanish) {
   }
 
   return {
-    english: 'Habloo will create the natural English version here.',
-    pronunciation: 'pronunciación generada por Habloo',
+    english: '',
+    pronunciation: '',
   }
 }
 
@@ -254,13 +254,13 @@ export default function MyPhrasesPrototype({ onBack }) {
                       English natural version
                     </p>
                     <p className="mt-1 text-sm font-medium leading-snug text-[#B8FF2C]">
-                      {phrase.english}
+                      {phrase.english || 'Frase pendiente de generar'}
                     </p>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-white/35">
                       Pronunciación
                     </p>
                     <p className="mt-1 text-sm font-semibold leading-snug text-white/65">
-                      {phrase.pronunciation}
+                      {phrase.english ? phrase.pronunciation : 'Pendiente'}
                     </p>
                   </div>
                 )}

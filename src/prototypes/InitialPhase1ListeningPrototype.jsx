@@ -515,6 +515,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   const [tutorName] = useState(getStoredTutorName)
 
   const isPlayingRef = useRef(false)
+  const isAutoPlayRef = useRef(false)
   const currentIndexRef = useRef(0)
   const isShuffleOnRef = useRef(false)
   const playedIndicesRef = useRef([])
@@ -675,15 +676,16 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   const moveToPhrase = (nextIndex, { addToHistory = true } = {}) => {
     if (!Number.isInteger(nextIndex)) return
 
-    if (addToHistory) {
-      const nextHistory = [...navigationHistoryRef.current, currentIndexRef.current]
-      navigationHistoryRef.current = nextHistory
-      setNavigationHistory(nextHistory)
-    }
-
-    currentIndexRef.current = nextIndex
+    setCurrentIndex((previousIndex) => {
+      if (addToHistory) {
+        const nextHistory = [...navigationHistoryRef.current, previousIndex]
+        navigationHistoryRef.current = nextHistory
+        setNavigationHistory(nextHistory)
+      }
+      currentIndexRef.current = nextIndex
+      return nextIndex
+    })
     repeatRef.current = 1
-    setCurrentIndex(nextIndex)
     setRepeat(1)
     hideTranslation()
     setActiveWordIndex(null)
@@ -708,31 +710,44 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     setSpeechSpeed(nextSpeed)
   }
 
+  const cancelCurrentSpeech = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = null
+    if (wordTimerRef.current) clearInterval(wordTimerRef.current)
+    wordTimerRef.current = null
+    if (window.speechSynthesis) window.speechSynthesis.cancel()
+    utteranceRef.current = null
+    setActiveWordIndex(null)
+  }, [])
+
   const stopSpeech = useCallback(() => {
     isPlayingRef.current = false
+    isAutoPlayRef.current = false
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
-    setActiveWordIndex(null)
     hideTranslation()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    if (wordTimerRef.current) clearInterval(wordTimerRef.current)
-    if (window.speechSynthesis) window.speechSynthesis.cancel()
-    utteranceRef.current = null
-  }, [hideTranslation])
+    cancelCurrentSpeech()
+  }, [cancelCurrentSpeech, hideTranslation])
 
   const pauseSpeech = useCallback(() => {
     isPlayingRef.current = false
+    isAutoPlayRef.current = false
     setIsPlaying(false)
     setIsPaused(true)
     setIsAutoPlayOn(false)
-    setActiveWordIndex(null)
     hideTranslation()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    if (wordTimerRef.current) clearInterval(wordTimerRef.current)
-    if (window.speechSynthesis) window.speechSynthesis.cancel()
-    utteranceRef.current = null
-  }, [hideTranslation])
+    cancelCurrentSpeech()
+  }, [cancelCurrentSpeech, hideTranslation])
+
+  const finishAutoPlay = useCallback(() => {
+    isPlayingRef.current = false
+    isAutoPlayRef.current = false
+    setIsPlaying(false)
+    setIsPaused(false)
+    setIsAutoPlayOn(false)
+    cancelCurrentSpeech()
+  }, [cancelCurrentSpeech])
 
   const startEstimatedWordTimer = useCallback((words, speechRate) => {
     if (wordTimerRef.current) clearInterval(wordTimerRef.current)
@@ -757,16 +772,23 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     }, estimatedMs)
   }, [])
 
-  const speakCurrent = useCallback((indexOverride = currentIndexRef.current) => {
+  const speakPhrase = useCallback((phraseIndex, repeatCount = 1) => {
     if (!window.speechSynthesis || sentences.length === 0) {
-      setIsPlaying(false)
-      isPlayingRef.current = false
+      finishAutoPlay()
       return
     }
 
-    currentIndexRef.current = indexOverride
-    const sentence = sentences[indexOverride]
+    const sentence = sentences[phraseIndex]
     if (!sentence) return
+
+    cancelCurrentSpeech()
+    currentIndexRef.current = phraseIndex
+    repeatRef.current = repeatCount
+    isPlayingRef.current = true
+    setIsPlaying(true)
+    setIsPaused(false)
+    setRepeat(repeatCount)
+
     const words = splitWords(sentence.sentence_en)
     const speechRate = speechRateRef.current
 
@@ -774,8 +796,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     // Current Web Speech API is fallback prototype only.
     // TODO: Future ElevenLabs integration should use generated audio playbackRate or separate voice speed settings.
     // TODO: Future ElevenLabs integration should use real word-level timestamps if available.
-    window.speechSynthesis.cancel()
-    if (wordTimerRef.current) clearInterval(wordTimerRef.current)
     startEstimatedWordTimer(words, speechRate)
     const utterance = new SpeechSynthesisUtterance(sentence.sentence_en)
     utterance.lang = 'en-US'
@@ -787,6 +807,13 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     }
     utteranceRef.current = utterance
 
+    console.log('[Fase1 autoplay]', {
+      currentIndex: phraseIndex,
+      nextIndex: null,
+      repeatCount,
+      autoPlay: isAutoPlayRef.current,
+    })
+
     utterance.onboundary = (event) => {
       if (event.name !== 'word' || !Number.isFinite(event.charIndex)) return
       if (wordTimerRef.current) {
@@ -797,6 +824,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     }
 
     utterance.onend = () => {
+      if (utteranceRef.current !== utterance) return
       if (!isPlayingRef.current) return
       setActiveWordIndex(null)
       if (wordTimerRef.current) {
@@ -805,52 +833,67 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       }
 
       timeoutRef.current = setTimeout(() => {
-        if (!isPlayingRef.current) return
+        if (!isPlayingRef.current || !isAutoPlayRef.current) return
 
-        if (repeatRef.current < repeatTargetRef.current) {
-          repeatRef.current += 1
-          setRepeat(repeatRef.current)
-          speakCurrent()
+        if (repeatCount < repeatTargetRef.current) {
+          const nextRepeatCount = repeatCount + 1
+          console.log('[Fase1 autoplay]', {
+            currentIndex: phraseIndex,
+            nextIndex: phraseIndex,
+            repeatCount: nextRepeatCount,
+            autoPlay: isAutoPlayRef.current,
+          })
+          speakPhrase(phraseIndex, nextRepeatCount)
           return
         }
 
         hideTranslation()
 
-        markPlayed(currentIndexRef.current)
+        markPlayed(phraseIndex)
         const nextIndex = getNextUnplayedIndex({
           length: sentences.length,
-          currentIndex: currentIndexRef.current,
+          currentIndex: phraseIndex,
           playedIndices: playedIndicesRef.current,
           isShuffleOn: isShuffleOnRef.current,
         })
 
+        console.log('[Fase1 autoplay]', {
+          currentIndex: phraseIndex,
+          nextIndex,
+          repeatCount,
+          autoPlay: isAutoPlayRef.current,
+        })
+
         if (nextIndex === null) {
-          isPlayingRef.current = false
-          setIsPlaying(false)
-          setIsAutoPlayOn(false)
           setIsBagCompleted(true)
+          finishAutoPlay()
           return
         }
 
         moveToPhrase(nextIndex)
-
-        speakCurrent(nextIndex)
+        window.setTimeout(() => speakPhrase(nextIndex, 1), 0)
       }, 900)
     }
 
+    utterance.onerror = () => {
+      if (utteranceRef.current !== utterance) return
+      finishAutoPlay()
+    }
+
     window.speechSynthesis.speak(utterance)
-  }, [hideTranslation, sentences, startEstimatedWordTimer])
+  }, [cancelCurrentSpeech, finishAutoPlay, hideTranslation, sentences, startEstimatedWordTimer])
 
   const startAutoPlay = () => {
     if (!currentSentence) return
     isPlayingRef.current = true
+    isAutoPlayRef.current = true
     currentIndexRef.current = currentIndex
     repeatRef.current = 1
     setRepeat(1)
     setIsPlaying(true)
     setIsPaused(false)
     setIsAutoPlayOn(true)
-    speakCurrent()
+    speakPhrase(currentIndex, 1)
   }
 
   const stopAutoPlay = () => {
@@ -891,7 +934,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     stopSpeech()
     currentIndexRef.current = previousIndex
     repeatRef.current = 1
-    setCurrentIndex(previousIndex)
+    setCurrentIndex(() => previousIndex)
     setRepeat(1)
     hideTranslation()
     setActiveWordIndex(null)
@@ -912,8 +955,27 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       return
     }
 
-    stopSpeech()
+    const shouldContinueAutoPlay = isAutoPlayRef.current || isAutoPlayOn
+    if (shouldContinueAutoPlay) {
+      cancelCurrentSpeech()
+      isPlayingRef.current = true
+      isAutoPlayRef.current = true
+      setIsPlaying(true)
+      setIsPaused(false)
+      setIsAutoPlayOn(true)
+    } else {
+      stopSpeech()
+    }
     moveToPhrase(nextIndex)
+    if (shouldContinueAutoPlay) {
+      console.log('[Fase1 autoplay]', {
+        currentIndex,
+        nextIndex,
+        repeatCount: 1,
+        autoPlay: true,
+      })
+      window.setTimeout(() => speakPhrase(nextIndex, 1), 0)
+    }
   }
 
   useEffect(() => {

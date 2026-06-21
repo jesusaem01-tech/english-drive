@@ -28,6 +28,15 @@ function saveCustomPhrases(phrases) {
   window.dispatchEvent(new CustomEvent(CUSTOM_PHRASES_CHANGED_EVENT, { detail: { total: phrases.length } }))
 }
 
+function normalizePhraseText(text) {
+  return String(text || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
 function processPhrase(spanish) {
   // TODO: Later connect to backend/Supabase custom sentences.
   // TODO: Later consume credits based on plan.
@@ -48,12 +57,15 @@ function processPhrase(spanish) {
 export default function MyPhrasesPrototype({ onBack }) {
   const [phrases, setPhrases] = useState(getStoredCustomPhrases)
   const [isCreating, setIsCreating] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [draft, setDraft] = useState('')
+  const [importDraft, setImportDraft] = useState('')
 
   const isEditing = editingId !== null
   const canSaveDraft = draft.trim().length > 0
+  const canImportDraft = importDraft.split('\n').some((line) => line.trim())
   const customPhrasesUsed = phrases.length
 
   useEffect(() => {
@@ -69,7 +81,16 @@ export default function MyPhrasesPrototype({ onBack }) {
   const openCreate = () => {
     setEditingId(null)
     setDraft('')
+    setIsImporting(false)
     setIsCreating(true)
+  }
+
+  const openImport = () => {
+    setEditingId(null)
+    setDraft('')
+    setImportDraft('')
+    setIsCreating(false)
+    setIsImporting(true)
   }
 
   const savePhrase = () => {
@@ -115,10 +136,46 @@ export default function MyPhrasesPrototype({ onBack }) {
     setDraft('')
   }
 
+  const importPhrases = () => {
+    const lines = importDraft
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (lines.length === 0) return
+
+    const seen = new Set(phrases.map((phrase) => normalizePhraseText(phrase.spanish)))
+    const nextItems = []
+
+    lines.forEach((spanish, index) => {
+      const key = normalizePhraseText(spanish)
+      if (!key || seen.has(key)) return
+      seen.add(key)
+      nextItems.push({
+        id: Date.now() + index,
+        spanish,
+        ...processPhrase(spanish),
+      })
+    })
+
+    if (nextItems.length === 0) return
+
+    setPhrases((current) => {
+      const nextPhrases = [...nextItems, ...current]
+      saveCustomPhrases(nextPhrases)
+      setExpandedId(nextItems[0].id)
+      return nextPhrases
+    })
+
+    setImportDraft('')
+    setIsImporting(false)
+  }
+
   const editPhrase = (event, phrase) => {
     event.stopPropagation()
     setDraft(phrase.spanish)
     setEditingId(phrase.id)
+    setIsImporting(false)
     setIsCreating(true)
   }
 
@@ -173,12 +230,20 @@ export default function MyPhrasesPrototype({ onBack }) {
             </span>
           </div>
 
-          <button
-            onClick={openCreate}
-            className="w-full rounded-2xl bg-[#B8FF2C] py-4 text-base font-semibold text-[#06111F] shadow-lg shadow-[#B8FF2C]/15 active:scale-95"
-          >
-            + Crear frase
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={openCreate}
+              className="rounded-2xl bg-[#B8FF2C] py-4 text-base font-semibold text-[#06111F] shadow-lg shadow-[#B8FF2C]/15 active:scale-95"
+            >
+              + Crear frase
+            </button>
+            <button
+              onClick={openImport}
+              className="rounded-2xl border border-[#B8FF2C]/25 bg-[#102B43] py-4 text-base font-semibold text-[#B8FF2C] active:scale-95"
+            >
+              Importar lista
+            </button>
+          </div>
         </header>
 
         {isCreating && (
@@ -205,6 +270,38 @@ export default function MyPhrasesPrototype({ onBack }) {
                   setIsCreating(false)
                   setEditingId(null)
                   setDraft('')
+                }}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/70 active:scale-95"
+              >
+                Cancelar
+              </button>
+            </div>
+          </section>
+        )}
+
+        {isImporting && (
+          <section className="mb-4 rounded-[22px] border border-[#B8FF2C]/20 bg-[#102B43] p-4">
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#B8FF2C]/70">
+              Una frase por linea
+            </label>
+            <textarea
+              value={importDraft}
+              onChange={(event) => setImportDraft(event.target.value)}
+              className="mt-3 min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-[#071827] px-4 py-4 text-base font-medium text-white outline-none placeholder:text-white/30 focus:border-[#B8FF2C]/50"
+              placeholder="Pega varias frases, una por linea"
+            />
+            <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
+              <button
+                onClick={importPhrases}
+                disabled={!canImportDraft}
+                className="rounded-2xl bg-[#B8FF2C] py-3 text-sm font-semibold text-[#06111F] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Importar
+              </button>
+              <button
+                onClick={() => {
+                  setIsImporting(false)
+                  setImportDraft('')
                 }}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/70 active:scale-95"
               >

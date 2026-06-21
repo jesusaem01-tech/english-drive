@@ -292,7 +292,7 @@ export default function Phase2PronunciationTutorPrototype({ onBack }) {
             Volver
           </button>
           <span className="rounded-full bg-[#B8FF2C] px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#071321]">
-            Prototype
+            BETA
           </span>
         </div>
 

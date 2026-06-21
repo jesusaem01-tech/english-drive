@@ -1155,7 +1155,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
             Volver
           </button>
           <span className="rounded-full bg-[#B8FF2C] px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#071321]">
-            {isPrototype ? 'Prototype' : 'Fase 1 V1'}
+            {isPrototype ? 'BETA' : 'Fase 1 V1'}
           </span>
         </div>
 

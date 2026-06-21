@@ -156,7 +156,7 @@ export default function MyPhrasesPrototype({ onBack }) {
             Volver
           </button>
           <span className="rounded-full bg-[#B8FF2C] px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#06111F]">
-            Prototype
+            BETA
           </span>
         </div>
 

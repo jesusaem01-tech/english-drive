@@ -50,9 +50,10 @@ export default function MyPhrasesPrototype({ onBack }) {
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
-  const [draft, setDraft] = useState(sampleInput)
+  const [draft, setDraft] = useState('')
 
   const isEditing = editingId !== null
+  const canSaveDraft = draft.trim().length > 0
   const customPhrasesUsed = phrases.length
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function MyPhrasesPrototype({ onBack }) {
 
   const openCreate = () => {
     setEditingId(null)
-    setDraft(sampleInput)
+    setDraft('')
     setIsCreating(true)
   }
 
@@ -111,6 +112,7 @@ export default function MyPhrasesPrototype({ onBack }) {
 
     setIsCreating(false)
     setEditingId(null)
+    setDraft('')
   }
 
   const editPhrase = (event, phrase) => {
@@ -193,7 +195,8 @@ export default function MyPhrasesPrototype({ onBack }) {
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
               <button
                 onClick={savePhrase}
-                className="rounded-2xl bg-[#B8FF2C] py-3 text-sm font-semibold text-[#06111F] active:scale-95"
+                disabled={!canSaveDraft}
+                className="rounded-2xl bg-[#B8FF2C] py-3 text-sm font-semibold text-[#06111F] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isEditing ? 'Guardar' : 'Crear'}
               </button>
@@ -201,6 +204,7 @@ export default function MyPhrasesPrototype({ onBack }) {
                 onClick={() => {
                   setIsCreating(false)
                   setEditingId(null)
+                  setDraft('')
                 }}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/70 active:scale-95"
               >

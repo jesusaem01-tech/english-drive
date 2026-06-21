@@ -106,6 +106,8 @@ export default function MyPhrasesPrototype({ onBack }) {
             ? {
                 ...phrase,
                 spanish,
+                original_es: spanish,
+                text: spanish,
                 ...processed,
               }
             : phrase
@@ -121,6 +123,8 @@ export default function MyPhrasesPrototype({ onBack }) {
           {
             id: nextId,
             spanish,
+            original_es: spanish,
+            text: spanish,
             ...processed,
           },
           ...current,
@@ -154,6 +158,8 @@ export default function MyPhrasesPrototype({ onBack }) {
       nextItems.push({
         id: Date.now() + index,
         spanish,
+        original_es: spanish,
+        text: spanish,
         ...processPhrase(spanish),
       })
     })

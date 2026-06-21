@@ -335,6 +335,15 @@ function getCustomEnglishText(phrase) {
   return cleanEnglishText(
     phrase?.english ||
     phrase?.english_sentence ||
+    ''
+  )
+}
+
+function getCustomOriginalText(phrase) {
+  return cleanEnglishText(
+    phrase?.original_es ||
+    phrase?.spanish ||
+    phrase?.es ||
     phrase?.text ||
     phrase?.phrase ||
     phrase?.sentence ||
@@ -345,7 +354,7 @@ function getCustomEnglishText(phrase) {
 function dedupeSentences(items) {
   const seen = new Set()
   return items.filter((item) => {
-    const key = normalizeSentenceKey(item?.sentence_en)
+    const key = `${item?.category || ''}:${normalizeSentenceKey(item?.sentence_en)}`
     if (!key || seen.has(key)) return false
     seen.add(key)
     return true
@@ -368,18 +377,20 @@ function getCustomPhraseSet() {
       phrase,
       index,
       english: getCustomEnglishText(phrase),
+      originalText: getCustomOriginalText(phrase),
     }))
-    .filter(({ english }) => isValidStudyText(english))
+    .filter(({ english, originalText }) => isValidStudyText(english) || originalText)
     .map((phrase, index) => ({
       id: `custom-phrase-${phrase.phrase.id || phrase.index || index + 1}`,
       category: 'custom_phrases',
       category_label: 'Mis Frases',
-      sentence_en: phrase.english,
-      translation_es: phrase.phrase.spanish || '',
+      sentence_en: isValidStudyText(phrase.english) ? phrase.english : phrase.originalText,
+      translation_es: phrase.phrase.spanish || phrase.originalText || '',
       phonetic_es: phrase.phrase.pronunciation || '',
       pronunciation: '',
       ipa: '',
       scene: 'Mis Frases',
+      is_pending_translation: !isValidStudyText(phrase.english),
     }))
 }
 
@@ -403,6 +414,7 @@ function calculateKnownCoreUnits(availableSentences = []) {
   masteredIds.forEach((phraseId) => {
     const sentence = availableById.get(phraseId)
     if (!sentence) return
+    if (sentence.is_pending_translation) return
     normalizeWords(sentence.sentence_en).forEach((word) => knownWords.add(word))
   })
 
@@ -412,6 +424,7 @@ function calculateKnownCoreUnits(availableSentences = []) {
 }
 
 function updateLearningProgress(sentence, availableSentences = []) {
+  if (sentence?.is_pending_translation) return calculateKnownCoreUnits(availableSentences)
   if (!sentence?.id) return calculateKnownCoreUnits(availableSentences)
 
   const masteredIds = new Set(getStoredArray(MASTERED_PHRASES_KEY))
@@ -700,7 +713,11 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
             ...sentence,
             sentence_en: cleanEnglishText(sentence.sentence_en),
           }))
-          .filter((sentence) => isValidStudyText(sentence.sentence_en, interestLabels))
+          .filter((sentence) =>
+            sentence.category === 'custom_phrases'
+              ? !!sentence.sentence_en
+              : isValidStudyText(sentence.sentence_en, interestLabels)
+          )
       )
       const validCustomPhraseTotal = learningSet.filter((sentence) => sentence.category === 'custom_phrases').length
       warnMissingPrototypePronunciations(learningSet)
@@ -933,6 +950,32 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
     const sentence = sentences[phraseIndex]
     if (!sentence) return
+
+    if (sentence.is_pending_translation) {
+      cancelCurrentSpeech()
+      currentIndexRef.current = phraseIndex
+      repeatRef.current = 1
+      setRepeat(1)
+      if (!isAutoPlayRef.current) return
+
+      markPlayed(phraseIndex)
+      const nextIndex = getNextUnplayedIndex({
+        length: sentences.length,
+        currentIndex: phraseIndex,
+        playedIndices: playedIndicesRef.current,
+        isShuffleOn: isShuffleOnRef.current,
+      })
+
+      if (nextIndex === null) {
+        setIsBagCompleted(true)
+        finishAutoPlay()
+        return
+      }
+
+      moveToPhrase(nextIndex)
+      window.setTimeout(() => speakPhrase(nextIndex, 1), 600)
+      return
+    }
 
     cancelCurrentSpeech()
     currentIndexRef.current = phraseIndex
@@ -1208,7 +1251,9 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
               onClick={toggleTranslation}
               className="mb-3 flex min-h-[270px] max-w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/45 bg-[#F6FFE8] px-5 py-8 text-center text-[#071321] shadow-[0_24px_70px_rgba(0,0,0,.24)] sm:px-6 sm:py-9"
             >
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#406014]/70">Inglés</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#406014]/70">
+                {currentSentence.is_pending_translation ? 'Pendiente de versión natural en inglés' : 'Inglés'}
+              </p>
               <p
                 className={`mx-auto mt-6 max-w-[340px] whitespace-normal font-semibold tracking-normal [hyphens:none] [overflow-wrap:normal] [word-break:keep-all] ${getSentenceFontSize(currentSentence.sentence_en)}`}
               >

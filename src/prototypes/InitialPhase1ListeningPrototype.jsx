@@ -297,11 +297,36 @@ function endsWithArtificialLabel(text, extraLabels = []) {
   })
 }
 
+function containsVisibleInterestLabel(text, extraLabels = []) {
+  const normalizedText = normalizeSentenceKey(text)
+  const labels = [
+    ...extraLabels,
+    'Vida diaria',
+    'Trabajo',
+    'Conversacion',
+    'Conversación',
+    'Viajes',
+    'Familia',
+    'Fitness',
+    'Bienes raices',
+    'Bienes raíces',
+    'Negocios',
+  ]
+
+  return labels.some((label) => {
+    const normalizedLabel = normalizeSentenceKey(label)
+    if (!normalizedLabel) return false
+    const escapedLabel = normalizedLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(^|\\s)${escapedLabel}(\\s|$)`).test(normalizedText)
+  })
+}
+
 function isValidStudyText(text, extraLabels = []) {
   const cleanText = cleanEnglishText(text)
   if (!cleanText) return false
   if (hasInvalidPattern(cleanText)) return false
   if (getRealWordCount(cleanText) < 2) return false
+  if (containsVisibleInterestLabel(cleanText, extraLabels)) return false
   if (endsWithArtificialLabel(cleanText, extraLabels)) return false
   return true
 }

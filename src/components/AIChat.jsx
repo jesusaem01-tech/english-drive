@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { getStats } from '../utils/storage.js'
 import { askSarah } from '../utils/elevenlabs.js'
+import { API_BASE_URL } from '../utils/apiConfig.js'
 import { sentences } from '../data/sentences.js'
 
-const DEV_MODE = true
+const OWNER_MODE = true
+const DEV_MODE = OWNER_MODE
 
 // ── Reemplaza con URL o ruta de imagen para usar foto real en lugar del SVG ──
 const AVATAR_IMAGE = ''
@@ -441,7 +443,7 @@ export default function AIChat({ onBack }) {
 
       const stats = getStats()
       const system = buildSystemPrompt(userName, stats.totalMastered, stats.streak, shuffledSentencesRef.current)
-      const res = await fetch('http://localhost:3000/chat', {
+      const res = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages, system }),
@@ -513,9 +515,11 @@ export default function AIChat({ onBack }) {
         setRepeatPhrase(currentSentenceRef.current || aiText.replace(/\*\*/g, '').replace(/\*/g, '').trim())
       }
 
-      const newCredits = creditsRef.current - 1
-      setCredits(newCredits)
-      localStorage.setItem(CREDITS_KEY, String(newCredits))
+      if (!OWNER_MODE) {
+        const newCredits = creditsRef.current - 1
+        setCredits(newCredits)
+        localStorage.setItem(CREDITS_KEY, String(newCredits))
+      }
 
       setIsSpeaking(true)
       const audioUrl = URL.createObjectURL(audioBlob)
@@ -619,7 +623,7 @@ export default function AIChat({ onBack }) {
         const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm'
         const formData = new FormData()
         formData.append('audio', blob, `audio.${ext}`)
-        const res  = await fetch('http://localhost:3000/transcribe', { method: 'POST', body: formData })
+        const res  = await fetch(`${API_BASE_URL}/transcribe`, { method: 'POST', body: formData })
         const data = await res.json()
         if (data.text?.trim()) sendMessage(data.text.trim())
         else setMicError('No se detectó voz. Intenta de nuevo.')
@@ -659,7 +663,7 @@ export default function AIChat({ onBack }) {
         <div className="w-14 h-12 rounded-2xl bg-[#0F2040] border border-[#F0B429]/20 flex flex-col items-center justify-center">
           <span className="text-[10px] text-[#F0B429]/50 leading-none">gratis</span>
           <span className={`text-base font-black leading-tight ${limitReached ? 'text-red-400' : 'text-[#F0B429]'}`}>
-            {credits}/{CREDITS_INITIAL}
+            {OWNER_MODE ? '∞' : `${credits}/${CREDITS_INITIAL}`}
           </span>
         </div>
       </div>

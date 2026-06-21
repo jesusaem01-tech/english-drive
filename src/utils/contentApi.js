@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3000'
+import { API_BASE_URL } from './apiConfig.js'
 
 function getSentenceList(payload) {
   if (Array.isArray(payload)) return payload

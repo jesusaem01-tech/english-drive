@@ -1,3 +1,5 @@
+import { getStoredOnboarding } from './Onboarding.jsx'
+
 const categories = [
   {
     id: 'daily_life',
@@ -62,7 +64,20 @@ const modules = [
   },
 ]
 
-export default function HomeScreen({ onNavigate }) {
+function getHomeProfile(onboarding) {
+  const saved = onboarding || getStoredOnboarding()
+  return {
+    name: saved?.name || localStorage.getItem('habloo_name') || 'Invitado',
+    tutor: saved?.tutor || 'Sarah',
+    interests: saved?.interests?.length ? saved.interests : ['Bienes raíces'],
+    targetLanguage: saved?.targetLanguage || 'Inglés',
+    level: saved?.level || 'No estoy seguro',
+  }
+}
+
+export default function HomeScreen({ onNavigate, onboarding }) {
+  const profile = getHomeProfile(onboarding)
+
   const openCategory = (item) => {
     if (item.disabled) return
     onNavigate('phase1')
@@ -76,19 +91,68 @@ export default function HomeScreen({ onNavigate }) {
   return (
     <div className="min-h-screen bg-[#071321] px-4 py-6 text-white">
       <div className="mx-auto flex min-h-[calc(100vh-48px)] w-full max-w-[430px] flex-col rounded-[30px] border border-[#B8FF2C]/10 bg-[#0B1D2F] p-5 shadow-2xl shadow-black/25">
-        <header className="mb-8">
+        <header className="mb-6">
           <p className="text-sm font-medium uppercase tracking-wide text-[#B8FF2C]/65">
-            MVP demo
+            Habloo
           </p>
-          <h1 className="mt-1 text-4xl font-semibold tracking-tight text-white">Habloo</h1>
-          <p className="mt-2 text-base font-medium text-white/60">Aprende por categorías</p>
+          <h1 className="mt-1 text-4xl font-semibold tracking-tight text-white">
+            Hola, {profile.name}
+          </h1>
+          <div className="mt-4 rounded-[24px] border border-[#44D7FF]/15 bg-[#102B43] p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#B8FF2C] text-lg font-black text-[#071321]">
+                S
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white/55">Tutor actual</p>
+                <p className="text-xl font-semibold text-white">{profile.tutor}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {profile.interests.map((interest) => (
+                <span
+                  key={interest}
+                  className="rounded-full border border-[#44D7FF]/25 bg-[#44D7FF]/10 px-3 py-1 text-xs font-semibold text-[#9CEFFF]"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
+          </div>
         </header>
+
+        <section className="mb-6">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate('prototype-my-phrases')}
+              className="min-h-[128px] rounded-[24px] border border-[#B8FF2C]/20 bg-[#102B43] p-4 text-left shadow-xl shadow-black/10 transition active:scale-95"
+            >
+              <p className="text-sm font-semibold uppercase tracking-wide text-[#B8FF2C]/70">
+                Mis Frases
+              </p>
+              <p className="mt-3 text-2xl font-semibold leading-tight text-white">0 guardadas</p>
+              <p className="mt-2 text-xs font-medium text-white/50">Tu banco personal</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('phase1')}
+              className="min-h-[128px] rounded-[24px] border border-[#44D7FF]/20 bg-[#102B43] p-4 text-left shadow-xl shadow-black/10 transition active:scale-95"
+            >
+              <p className="text-sm font-semibold uppercase tracking-wide text-[#44D7FF]/75">
+                Progreso
+              </p>
+              <p className="mt-3 text-2xl font-semibold leading-tight text-white">Inicio</p>
+              <p className="mt-2 text-xs font-medium text-white/50">{profile.level}</p>
+            </button>
+          </div>
+        </section>
 
         <section className="mb-8">
           <div className="mb-4">
             <h2 className="text-3xl font-semibold leading-tight text-white">Módulos de estudio</h2>
             <p className="mt-1 text-sm font-medium text-[#B8FF2C]/60">
-              Continúa con el flujo original de aprendizaje
+              {profile.targetLanguage} con {profile.tutor}
             </p>
           </div>
 

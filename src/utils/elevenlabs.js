@@ -1,8 +1,8 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+import { API_BASE_URL } from './apiConfig.js';
 
 export async function speakWithElevenLabs(text) {
   try {
-    const response = await fetch(`${BACKEND_URL}/speak`, {
+    const response = await fetch(`${API_BASE_URL}/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -23,7 +23,7 @@ export async function speakWithElevenLabs(text) {
 
 export async function askSarah(message) {
   try {
-    const response = await fetch(`${BACKEND_URL}/sarah`, {
+    const response = await fetch(`${API_BASE_URL}/sarah`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })

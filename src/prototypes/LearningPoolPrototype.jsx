@@ -5,6 +5,7 @@ const totalWords = 3000
 const OWNER_MODE = true
 const TARGET_PER_INTEREST = 20
 const CUSTOM_PHRASES_KEY = 'habloo_custom_phrases'
+const CUSTOM_PHRASES_CHANGED_EVENT = 'habloo_custom_phrases_changed'
 const MASTERED_PHRASES_KEY = 'habloo_mastered_phrase_ids'
 const CORE_UNITS_KEY = 'habloo_core_units_known'
 const US_FLAG = '\u{1F1FA}\u{1F1F8}'
@@ -103,6 +104,10 @@ function getStoredArray(key) {
   }
 }
 
+function getStoredCustomPhrasesCount() {
+  return getStoredArray(CUSTOM_PHRASES_KEY).length
+}
+
 function getStoredInterests(saved) {
   try {
     const raw = localStorage.getItem('habloo_interests')
@@ -142,7 +147,7 @@ function formatLanguage(value) {
 function getLearningPoolBag() {
   const saved = getStoredOnboarding()
   const interests = getStoredInterests(saved)
-  const customPhrases = getStoredArray(CUSTOM_PHRASES_KEY).filter((phrase) => phrase?.english)
+  const customPhrasesCount = getStoredCustomPhrasesCount()
   const masteredIds = getStoredArray(MASTERED_PHRASES_KEY)
   const coreUnitsKnown = getStoredArray(CORE_UNITS_KEY).length
   const tutorName = localStorage.getItem('habloo_tutor_name') || saved?.tutor || 'Sarah'
@@ -169,7 +174,7 @@ function getLearningPoolBag() {
     label: language.label,
     state: 'Activo',
     coreUnits: coreUnitsKnown,
-    phrases: customPhrases.length,
+    phrases: customPhrasesCount,
     tutors: buildTutors([tutorName]),
     tutorName,
     interests: activeInterests,
@@ -178,15 +183,15 @@ function getLearningPoolBag() {
       name: 'Mis Frases',
       current: masteredIds.filter((id) => String(id).startsWith('custom-phrase-')).length,
       acquiredWords: masteredIds.filter((id) => String(id).startsWith('custom-phrase-')).length,
-      total: customPhrases.length,
+      total: customPhrasesCount,
       color: 'from-[#F0B429] to-[#D946EF]',
       route: 'prototype-my-phrases',
     },
-    summary: `${interests.length} intereses · ${interests.length * TARGET_PER_INTEREST} frases + Mis Frases ${customPhrases.length}`,
+    summary: `${interests.length} intereses · ${interests.length * TARGET_PER_INTEREST} frases + Mis Frases ${customPhrasesCount}`,
     stats: [
       { value: String(interests.length), label: 'intereses activos' },
       { value: String(coreUnitsKnown), label: 'palabras adquiridas' },
-      { value: String(customPhrases.length), label: 'Mis Frases' },
+      { value: String(customPhrasesCount), label: 'Mis Frases' },
       { value: tutorName, label: 'tutor activo' },
     ],
   }
@@ -309,6 +314,7 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
   const [lockedInterest, setLockedInterest] = useState(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [, setTutorRefresh] = useState(0)
+  const [, setCustomPhrasesRefresh] = useState(0)
   const profileRef = useRef(null)
   const hablooBag = getLearningPoolBag()
   const selectedLanguage =
@@ -364,6 +370,16 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
 
     setTutorRefresh((value) => value + 1)
   }
+
+  useEffect(() => {
+    const refreshCustomPhraseCounts = () => setCustomPhrasesRefresh((value) => value + 1)
+    window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCustomPhraseCounts)
+    window.addEventListener('storage', refreshCustomPhraseCounts)
+    return () => {
+      window.removeEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCustomPhraseCounts)
+      window.removeEventListener('storage', refreshCustomPhraseCounts)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isProfileOpen) return undefined

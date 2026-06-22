@@ -35,6 +35,13 @@ const CUSTOM_PHRASES_KEY = 'habloo_custom_phrases'
 const CUSTOM_PHRASES_CHANGED_EVENT = 'habloo_custom_phrases_changed'
 const MASTERED_PHRASES_KEY = 'habloo_mastered_phrase_ids'
 const CORE_UNITS_KEY = 'habloo_core_units_known'
+const PHASE1_PREFERENCES_KEY = 'habloo_phase1_preferences'
+const DEFAULT_PHASE1_PREFERENCES = {
+  repetitions: DEFAULT_REPEAT_TARGET,
+  speed: DEFAULT_SPEECH_RATE,
+  shuffle: false,
+  autoPlay: false,
+}
 const INVALID_ENGLISH_PATTERNS = [
   /habloo will create/i,
   /^frase\s+\d+/i,
@@ -110,6 +117,51 @@ function getStoredLevel() {
 
 function getStoredTutorName() {
   return localStorage.getItem('habloo_tutor_name') || 'Sarah'
+}
+
+function getSpeedIdFromRate(rate) {
+  const numericRate = Number(rate)
+  const option = SPEED_OPTIONS.find((item) => item.rate === numericRate)
+  return option?.id || DEFAULT_SPEECH_SPEED
+}
+
+function loadPhase1Preferences() {
+  try {
+    const raw = localStorage.getItem(PHASE1_PREFERENCES_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    const repetitions = Math.max(
+      MIN_REPEAT_TARGET,
+      Math.min(MAX_REPEAT_TARGET, Number(parsed.repetitions) || DEFAULT_PHASE1_PREFERENCES.repetitions)
+    )
+    const speedId = getSpeedIdFromRate(parsed.speed)
+    const speedOption = SPEED_OPTIONS.find((option) => option.id === speedId) || SPEED_OPTIONS[2]
+
+    return {
+      repetitions,
+      speed: speedOption.rate,
+      speedId,
+      shuffle: typeof parsed.shuffle === 'boolean' ? parsed.shuffle : DEFAULT_PHASE1_PREFERENCES.shuffle,
+      autoPlay: typeof parsed.autoPlay === 'boolean' ? parsed.autoPlay : DEFAULT_PHASE1_PREFERENCES.autoPlay,
+    }
+  } catch {
+    return {
+      ...DEFAULT_PHASE1_PREFERENCES,
+      speedId: DEFAULT_SPEECH_SPEED,
+    }
+  }
+}
+
+function savePhase1Preferences(partial) {
+  const current = loadPhase1Preferences()
+  const next = {
+    repetitions: current.repetitions,
+    speed: current.speed,
+    shuffle: current.shuffle,
+    autoPlay: current.autoPlay,
+    ...partial,
+  }
+
+  localStorage.setItem(PHASE1_PREFERENCES_KEY, JSON.stringify(next))
 }
 
 function getStoredTutorProfile() {
@@ -650,16 +702,16 @@ function selectTutorVoice(voices, tutorProfile) {
 // Prototype note: Phase 2 should reuse this same combined 60-sentence learning set
 // for pronunciation practice after the Phase 1 listening flow is approved.
 export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = false }) {
+  const initialPreferencesRef = useRef(loadPhase1Preferences())
   const [sentences, setSentences] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [repeat, setRepeat] = useState(1)
-  // TODO: Later this should come from user profile/settings.
-  const [repeatTarget, setRepeatTarget] = useState(DEFAULT_REPEAT_TARGET)
-  const [speechSpeed, setSpeechSpeed] = useState(DEFAULT_SPEECH_SPEED)
+  const [repeatTarget, setRepeatTarget] = useState(initialPreferencesRef.current.repetitions)
+  const [speechSpeed, setSpeechSpeed] = useState(initialPreferencesRef.current.speedId)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
-  const [isAutoPlayOn, setIsAutoPlayOn] = useState(false)
-  const [isShuffleOn, setIsShuffleOn] = useState(false)
+  const [isAutoPlayOn, setIsAutoPlayOn] = useState(initialPreferencesRef.current.autoPlay)
+  const [isShuffleOn, setIsShuffleOn] = useState(initialPreferencesRef.current.shuffle)
   const [playedIndices, setPlayedIndices] = useState([])
   const [navigationHistory, setNavigationHistory] = useState([])
   const [isBagCompleted, setIsBagCompleted] = useState(false)
@@ -673,14 +725,14 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   const [tutorName] = useState(getStoredTutorName)
 
   const isPlayingRef = useRef(false)
-  const isAutoPlayRef = useRef(false)
+  const isAutoPlayRef = useRef(initialPreferencesRef.current.autoPlay)
   const currentIndexRef = useRef(0)
-  const isShuffleOnRef = useRef(false)
+  const isShuffleOnRef = useRef(initialPreferencesRef.current.shuffle)
   const playedIndicesRef = useRef([])
   const navigationHistoryRef = useRef([])
   const repeatRef = useRef(1)
-  const repeatTargetRef = useRef(DEFAULT_REPEAT_TARGET)
-  const speechRateRef = useRef(DEFAULT_SPEECH_RATE)
+  const repeatTargetRef = useRef(initialPreferencesRef.current.repetitions)
+  const speechRateRef = useRef(initialPreferencesRef.current.speed)
   const utteranceRef = useRef(null)
   const timeoutRef = useRef(null)
   const translationTimeoutRef = useRef(null)
@@ -865,6 +917,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     const safeTarget = Math.max(MIN_REPEAT_TARGET, Math.min(MAX_REPEAT_TARGET, nextTarget))
     repeatTargetRef.current = safeTarget
     setRepeatTarget(safeTarget)
+    savePhase1Preferences({ repetitions: safeTarget })
 
     if (repeatRef.current > safeTarget) {
       repeatRef.current = safeTarget
@@ -878,6 +931,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
     speechRateRef.current = nextOption.rate
     setSpeechSpeed(nextSpeed)
+    savePhase1Preferences({ speed: nextOption.rate })
   }
 
   const cancelCurrentSpeech = useCallback(() => {
@@ -896,6 +950,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
+    savePhase1Preferences({ autoPlay: false })
     hideTranslation()
     cancelCurrentSpeech()
   }, [cancelCurrentSpeech, hideTranslation])
@@ -906,6 +961,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     setIsPlaying(false)
     setIsPaused(true)
     setIsAutoPlayOn(false)
+    savePhase1Preferences({ autoPlay: false })
     hideTranslation()
     cancelCurrentSpeech()
   }, [cancelCurrentSpeech, hideTranslation])
@@ -916,6 +972,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
+    savePhase1Preferences({ autoPlay: false })
     cancelCurrentSpeech()
   }, [cancelCurrentSpeech])
 
@@ -1089,8 +1146,14 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     setIsPlaying(true)
     setIsPaused(false)
     setIsAutoPlayOn(true)
+    savePhase1Preferences({ autoPlay: true })
     speakPhrase(currentIndex, 1)
   }
+
+  useEffect(() => {
+    if (loading || !initialPreferencesRef.current.autoPlay || sentences.length === 0 || isPlayingRef.current) return
+    startAutoPlay()
+  }, [loading, sentences.length])
 
   const stopAutoPlay = () => {
     stopSpeech()
@@ -1111,6 +1174,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
     setIsShuffleOn(nextShuffleState)
     isShuffleOnRef.current = nextShuffleState
+    savePhase1Preferences({ shuffle: nextShuffleState })
     repeatRef.current = 1
     setRepeat(1)
   }
@@ -1159,6 +1223,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       setIsPlaying(true)
       setIsPaused(false)
       setIsAutoPlayOn(true)
+      savePhase1Preferences({ autoPlay: true })
     } else {
       stopSpeech()
     }

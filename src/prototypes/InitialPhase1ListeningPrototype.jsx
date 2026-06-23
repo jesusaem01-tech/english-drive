@@ -14,6 +14,12 @@ const SPEED_OPTIONS = [
   { id: 'normal', label: '1.0x', rate: 1.0, status: 'Normal' },
   { id: 'fast', label: '1.25x', rate: 1.25, status: 'Rápido' },
 ]
+const MOBILE_SPEECH_RATE_OVERRIDES = {
+  0.5: 0.45,
+  0.75: 0.65,
+  1: 0.85,
+  1.25: 1.05,
+}
 const DEFAULT_SPEECH_RATE = SPEED_OPTIONS.find((option) => option.id === DEFAULT_SPEECH_SPEED).rate
 const CATEGORY_LABELS = {
   daily_life: 'Vida diaria',
@@ -125,6 +131,20 @@ function getSpeedIdFromRate(rate) {
   const numericRate = Number(rate)
   const option = SPEED_OPTIONS.find((item) => item.rate === numericRate)
   return option?.id || DEFAULT_SPEECH_SPEED
+}
+
+function isMobileSpeechDevice() {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator?.userAgent || ''
+  return window.innerWidth <= 768 || /android|iphone|ipad|ipod|mobile/i.test(userAgent)
+}
+
+function getEffectiveSpeechRate(rate) {
+  const numericRate = Number(rate)
+  if (!isMobileSpeechDevice()) return numericRate
+
+  return MOBILE_SPEECH_RATE_OVERRIDES[numericRate] || numericRate
 }
 
 function loadPhase1Preferences() {
@@ -1152,6 +1172,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
     const words = splitWords(sentence.sentence_en)
     const speechRate = speechRateRef.current
+    const effectiveSpeechRate = getEffectiveSpeechRate(speechRate)
 
     // TODO: Final production voice will use ElevenLabs based on selected tutor voice.
     // Current Web Speech API is fallback prototype only.
@@ -1160,7 +1181,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     startEstimatedWordTimer(words, speechRate)
     const utterance = new SpeechSynthesisUtterance(sentence.sentence_en)
     utterance.lang = 'en-US'
-    utterance.rate = speechRate
+    utterance.rate = effectiveSpeechRate
     const tutorVoice = selectTutorVoice(window.speechSynthesis.getVoices(), getStoredTutorProfile())
     if (tutorVoice) {
       utterance.voice = tutorVoice

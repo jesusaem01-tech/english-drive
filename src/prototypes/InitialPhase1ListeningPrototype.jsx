@@ -782,7 +782,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   const [sourceNotes, setSourceNotes] = useState(() => initialPoolCacheRef.current?.sourceNotes || [])
   const [customPhraseTotal, setCustomPhraseTotal] = useState(() => initialPoolCacheRef.current?.customPhraseTotal || 0)
   const [selectedInterestTotal, setSelectedInterestTotal] = useState(() => initialPoolCacheRef.current?.selectedInterestTotal || 0)
-  const [coreUnitsKnown, setCoreUnitsKnown] = useState(() => getStoredArray(CORE_UNITS_KEY).length)
   const [tutorName] = useState(getStoredTutorName)
 
   const isPlayingRef = useRef(false)
@@ -810,7 +809,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
         setCustomPhraseTotal(cachedPool.customPhraseTotal)
         setSelectedInterestTotal(cachedPool.selectedInterestTotal)
         setSourceNotes(cachedPool.sourceNotes)
-        setCoreUnitsKnown(calculateKnownCoreUnits(learningSet))
         setLoading(false)
         poolSignatureRef.current = signature
 
@@ -878,7 +876,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       setSentences(learningSet)
       setCustomPhraseTotal(validCustomPhraseTotal)
       setSelectedInterestTotal(categoryConfigs.length)
-      setCoreUnitsKnown(calculateKnownCoreUnits(learningSet))
       if (resetSession) {
         currentIndexRef.current = 0
         repeatRef.current = 1
@@ -952,8 +949,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   )
   const progress = useMemo(() => {
     if (sentences.length === 0) return 0
-    return (playedIndices.length / sentences.length) * 100
-  }, [playedIndices.length, sentences.length])
+    return ((currentIndex + 1) / sentences.length) * 100
+  }, [currentIndex, sentences.length])
 
   const nextUnplayedIndex = useMemo(
     () =>
@@ -965,6 +962,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       }),
     [currentIndex, isShuffleOn, playedIndices, sentences.length]
   )
+  const canGoNext = currentIndex + 1 < sentences.length || nextUnplayedIndex !== null
 
   const hideTranslation = useCallback(() => {
     if (translationTimeoutRef.current) {
@@ -994,7 +992,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
   const markPlayed = (index) => {
     if (!Number.isInteger(index)) return
-    setCoreUnitsKnown(updateLearningProgress(sentences[index], sentences))
     const nextPlayed = Array.from(new Set([...playedIndicesRef.current, index]))
     playedIndicesRef.current = nextPlayed
     setPlayedIndices(nextPlayed)
@@ -1307,18 +1304,21 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     repeatRef.current = 1
     setCurrentIndex(() => previousIndex)
     setRepeat(1)
+    setIsBagCompleted(playedIndicesRef.current.length >= sentences.length)
     hideTranslation()
     setActiveWordIndex(null)
   }
 
   const goToNext = () => {
     markPlayed(currentIndex)
-    const nextIndex = getNextUnplayedIndex({
+    const unplayedNextIndex = getNextUnplayedIndex({
       length: sentences.length,
       currentIndex,
       playedIndices: playedIndicesRef.current,
       isShuffleOn,
     })
+    const relativeNextIndex = currentIndex + 1 < sentences.length ? currentIndex + 1 : null
+    const nextIndex = unplayedNextIndex ?? relativeNextIndex
 
     if (nextIndex === null) {
       setIsBagCompleted(true)
@@ -1383,9 +1383,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
           <h1 className="mt-2 text-3xl font-semibold leading-tight">Set inicial Habloo</h1>
           <p className="mt-2 text-sm text-white/55">
             {selectedCategoriesCount} intereses · {basePhraseCount} frases + Mis Frases {customPhraseTotal}
-          </p>
-          <p className="mt-1 text-xs font-semibold text-[#B8FF2C]/65">
-            {coreUnitsKnown} / 3000 Palabras adquiridas
           </p>
           <p className="mt-1 text-xs font-semibold text-white/45">
             Tutor: {tutorName}
@@ -1488,7 +1485,55 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
               </div>
             </div>
 
-            <div className="mt-5 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0E263A] p-4">
+            <div className="mt-4 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0E263A] p-3">
+              <div className="grid grid-cols-4 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleShuffle}
+                  disabled={sentences.length < 2}
+                  aria-pressed={isShuffleOn}
+                  aria-label={isShuffleOn ? 'Desactivar shuffle' : 'Activar shuffle'}
+                  className={`flex min-h-14 items-center justify-center rounded-2xl border border-[#B8FF2C]/15 bg-[#102B43] text-[22px] font-semibold leading-none transition-all disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 ${
+                    isShuffleOn
+                      ? 'text-[#B8FF2C] shadow-[0_0_18px_rgba(184,255,44,0.12)]'
+                      : 'text-white/42'
+                  }`}
+                >
+                  {'Shuffle'}
+                </button>
+                <button
+                  type="button"
+                  onClick={goToPrevious}
+                  disabled={navigationHistory.length === 0}
+                  className="min-h-14 rounded-2xl border border-[#B8FF2C]/25 bg-[#102B43] px-2 text-xs font-semibold text-[#B8FF2C] disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={isPlaying || isAutoPlayOn ? pauseListening : toggleAutoPlay}
+                  aria-pressed={isAutoPlayOn}
+                  aria-label={isPlaying || isAutoPlayOn ? 'Pausar' : 'Activar auto play'}
+                  className={`flex min-h-14 items-center justify-center rounded-2xl border border-[#B8FF2C]/35 bg-[#102B43] text-sm font-black leading-none transition-all active:scale-95 ${
+                    isPlaying || isAutoPlayOn
+                      ? 'text-[#B8FF2C] shadow-[0_0_18px_rgba(184,255,44,0.16)]'
+                      : 'text-white/52'
+                  }`}
+                >
+                  {isPlaying || isAutoPlayOn ? 'Pausa' : 'Play'}
+                </button>
+                <button
+                  type="button"
+                  onClick={goToNext}
+                  disabled={!canGoNext}
+                  className="min-h-14 rounded-2xl border border-[#B8FF2C]/25 bg-[#102B43] px-2 text-xs font-semibold text-[#B8FF2C] disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0E263A] p-4">
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#B8FF2C]/60">
@@ -1563,7 +1608,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
               </div>
             </div>
 
-            <div className="mt-auto pt-6">
+            <div className="hidden">
               <div className="mb-5 grid grid-cols-3 items-center py-2">
                 <button
                   type="button"

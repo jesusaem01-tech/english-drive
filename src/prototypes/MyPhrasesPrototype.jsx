@@ -204,13 +204,13 @@ export default function MyPhrasesPrototype({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#06111F] px-4 py-5 text-white">
+    <div className="min-h-[100dvh] overflow-x-hidden bg-[#06111F] px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 text-white">
       <div className="pointer-events-none fixed inset-0 opacity-80">
         <div className="absolute right-[-100px] top-[-90px] h-72 w-72 rounded-full bg-[#B8FF2C]/10 blur-3xl" />
         <div className="absolute bottom-[-130px] left-[-120px] h-80 w-80 rounded-full bg-[#FF7AB6]/10 blur-3xl" />
       </div>
 
-      <main className="relative mx-auto flex min-h-[calc(100vh-40px)] w-full max-w-[440px] flex-col rounded-[30px] border border-[#B8FF2C]/15 bg-[#091A2C]/95 p-5 shadow-2xl shadow-black/35">
+      <main className="relative mx-auto flex min-h-[calc(100dvh-40px)] w-full max-w-[440px] flex-col rounded-[30px] border border-[#B8FF2C]/15 bg-[#091A2C]/95 p-5 shadow-2xl shadow-black/35">
         <div className="mb-5 flex items-center justify-between">
           <button
             onClick={onBack}

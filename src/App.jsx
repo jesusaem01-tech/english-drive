@@ -168,7 +168,12 @@ export default function App() {
   }, [])
 
   const navigate = (to) => {
-    if (window.speechSynthesis) window.speechSynthesis.cancel()
+    if (
+      window.speechSynthesis &&
+      (window.speechSynthesis.speaking || window.speechSynthesis.pending || window.speechSynthesis.paused)
+    ) {
+      window.speechSynthesis.cancel()
+    }
     setScreen(normalizeScreen(to))
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
   }

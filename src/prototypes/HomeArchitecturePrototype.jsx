@@ -230,7 +230,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
 
   return (
     <div
-      className="min-h-screen overflow-hidden px-4 py-4 text-white selection:bg-[#B8FF2C] selection:text-[#071321]"
+      className="min-h-[100dvh] overflow-x-hidden px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white selection:bg-[#B8FF2C] selection:text-[#071321]"
       style={{
         background:
           'radial-gradient(circle at 50% -12%, rgba(68, 215, 255, 0.2), transparent 34%), radial-gradient(circle at 12% 18%, rgba(10, 34, 64, 0.9), transparent 36%), linear-gradient(160deg, #04162b 0%, #071c36 48%, #0a2240 100%)',
@@ -260,7 +260,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
         <div className="absolute bottom-[16%] right-[-170px] h-[300px] w-[300px] rounded-full bg-[#B8FF2C]/7 blur-[95px]" />
       </div>
 
-      <main className="relative mx-auto flex min-h-[calc(100vh-32px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[#071321]/92 p-4 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-2xl sm:p-5">
+      <main className="relative mx-auto flex min-h-[calc(100dvh-32px)] w-full max-w-[430px] flex-col overflow-visible rounded-[34px] border border-white/10 bg-[#071321]/92 p-4 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-2xl sm:p-5">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#B8FF2C]/45 to-transparent" />
 
         <header className="mb-6 flex items-center justify-between gap-3">
@@ -376,7 +376,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
               <span>Progreso</span>
               <span className="group relative inline-grid h-5 w-5 cursor-help place-items-center rounded-full border border-[#B8FF2C]/35 text-[10px] tracking-normal" tabIndex={0}>
                 ?
-                <span className="pointer-events-none absolute left-0 top-7 z-20 hidden w-64 rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed tracking-normal text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block">
+                <span className="pointer-events-none fixed left-4 right-4 top-28 z-50 hidden max-w-[85vw] whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed tracking-normal text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block sm:absolute sm:left-0 sm:right-auto sm:top-7 sm:w-64 sm:max-w-none">
                   {acquiredWordsTooltip}
                 </span>
               </span>

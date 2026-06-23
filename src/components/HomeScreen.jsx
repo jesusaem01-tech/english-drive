@@ -89,8 +89,8 @@ export default function HomeScreen({ onNavigate, onboarding }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#071321] px-4 py-6 text-white">
-      <div className="mx-auto flex min-h-[calc(100vh-48px)] w-full max-w-[430px] flex-col rounded-[30px] border border-[#B8FF2C]/10 bg-[#0B1D2F] p-5 shadow-2xl shadow-black/25">
+    <div className="min-h-[100dvh] bg-[#071321] px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6 text-white">
+      <div className="mx-auto flex min-h-[calc(100dvh-48px)] w-full max-w-[430px] flex-col rounded-[30px] border border-[#B8FF2C]/10 bg-[#0B1D2F] p-5 shadow-2xl shadow-black/25">
         <header className="mb-6">
           <p className="text-sm font-medium uppercase tracking-wide text-[#B8FF2C]/65">
             Habloo

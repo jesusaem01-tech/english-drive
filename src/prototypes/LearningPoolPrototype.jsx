@@ -394,13 +394,13 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
   }, [isProfileOpen])
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#06111F] px-4 py-5 text-white">
+    <div className="min-h-[100dvh] overflow-x-hidden bg-[#06111F] px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 text-white">
       <div className="pointer-events-none fixed inset-0 opacity-80">
         <div className="absolute left-[-90px] top-[-80px] h-64 w-64 rounded-full bg-[#B8FF2C]/10 blur-3xl" />
         <div className="absolute bottom-[-120px] right-[-110px] h-72 w-72 rounded-full bg-[#44D7FF]/10 blur-3xl" />
       </div>
 
-      <main className="relative mx-auto flex min-h-[calc(100vh-40px)] w-full max-w-[440px] flex-col rounded-[30px] border border-[#B8FF2C]/15 bg-[#091A2C]/95 p-5 shadow-2xl shadow-black/35">
+      <main className="relative mx-auto flex min-h-[calc(100dvh-40px)] w-full max-w-[440px] flex-col rounded-[30px] border border-[#B8FF2C]/15 bg-[#091A2C]/95 p-5 shadow-2xl shadow-black/35">
         <div className="relative mb-3 flex h-11 items-center justify-between">
           <button
             type="button"
@@ -468,7 +468,7 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
                   <span>{selectedLanguage.coreUnits} / {totalWords} Palabras adquiridas</span>
                   <span className="group relative inline-grid h-4 w-4 cursor-help place-items-center rounded-full border border-white/20 text-[9px] text-[#B8FF2C]" tabIndex={0}>
                     ?
-                    <span className="pointer-events-none absolute left-0 top-6 z-20 hidden w-64 rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block">
+                    <span className="pointer-events-none fixed left-4 right-4 top-28 z-50 hidden max-w-[85vw] whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block sm:absolute sm:left-0 sm:right-auto sm:top-6 sm:w-64 sm:max-w-none">
                       {acquiredWordsTooltip}
                     </span>
                   </span>
@@ -541,7 +541,7 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
             <h2 className="text-[15px] font-semibold text-white">Intereses Activos</h2>
             <span className="group relative inline-flex cursor-help items-center gap-1 text-right text-[11px] font-bold text-[#B8FF2C]" tabIndex={0}>
               Palabras Adquiridas <span className="text-[12px]">?</span>
-              <span className="pointer-events-none absolute right-0 top-6 z-20 hidden w-72 whitespace-pre-line rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block">
+              <span className="pointer-events-none fixed left-4 right-4 top-28 z-50 hidden max-w-[85vw] whitespace-pre-line rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block sm:absolute sm:left-auto sm:right-0 sm:top-6 sm:w-72 sm:max-w-none">
                 {interestWordsTooltip}
               </span>
             </span>

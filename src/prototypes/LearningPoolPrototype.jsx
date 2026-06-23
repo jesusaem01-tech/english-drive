@@ -453,7 +453,7 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
           </p>
         </header>
 
-        <section className="mb-5 rounded-[26px] border border-white/10 bg-[#0E263A] p-4">
+        <section className="relative mb-5 overflow-visible rounded-[26px] border border-white/10 bg-[#0E263A] p-4">
           <h2 className="text-[15px] font-semibold text-white">Idiomas</h2>
           <div className="mt-3 rounded-[24px] border border-[#B8FF2C]/24 bg-[#B8FF2C]/8 p-4 shadow-lg shadow-[#B8FF2C]/5">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B8FF2C]/70">
@@ -468,7 +468,7 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
                   <span>{selectedLanguage.coreUnits} / {totalWords} Palabras adquiridas</span>
                   <span className="group relative inline-grid h-4 w-4 cursor-help place-items-center rounded-full border border-white/20 text-[9px] text-[#B8FF2C]" tabIndex={0}>
                     ?
-                    <span className="pointer-events-none fixed left-4 right-4 top-28 z-50 hidden max-w-[85vw] whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block sm:absolute sm:left-0 sm:right-auto sm:top-6 sm:w-64 sm:max-w-none">
+                    <span className="pointer-events-none fixed left-1/2 top-24 z-50 hidden w-[min(85vw,320px)] max-w-[min(85vw,320px)] -translate-x-1/2 whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 [word-break:normal] group-hover:block group-focus:block sm:absolute sm:left-auto sm:right-0 sm:top-6 sm:translate-x-0">
                       {acquiredWordsTooltip}
                     </span>
                   </span>
@@ -536,12 +536,12 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
           </button>
         </section>
 
-        <section className="mb-5 rounded-[26px] border border-white/10 bg-[#0E263A] p-4">
+        <section className="relative mb-5 overflow-visible rounded-[26px] border border-white/10 bg-[#0E263A] p-4">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-[15px] font-semibold text-white">Intereses Activos</h2>
             <span className="group relative inline-flex cursor-help items-center gap-1 text-right text-[11px] font-bold text-[#B8FF2C]" tabIndex={0}>
               Palabras Adquiridas <span className="text-[12px]">?</span>
-              <span className="pointer-events-none fixed left-4 right-4 top-28 z-50 hidden max-w-[85vw] whitespace-pre-line rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block sm:absolute sm:left-auto sm:right-0 sm:top-6 sm:w-72 sm:max-w-none">
+              <span className="pointer-events-none fixed left-1/2 top-24 z-50 hidden w-[min(85vw,320px)] max-w-[min(85vw,320px)] -translate-x-1/2 whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed text-white/78 shadow-2xl shadow-black/40 [word-break:normal] group-hover:block group-focus:block sm:absolute sm:left-auto sm:right-0 sm:top-6 sm:translate-x-0">
                 {interestWordsTooltip}
               </span>
             </span>

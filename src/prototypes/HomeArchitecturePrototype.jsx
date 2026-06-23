@@ -363,7 +363,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
         </header>
 
         <section
-          className="relative mb-5 overflow-hidden rounded-[30px] border border-[#B8FF2C]/18 bg-[linear-gradient(145deg,rgba(16,43,67,.96),rgba(6,18,32,.98)_58%,rgba(184,255,44,.09))] p-5 shadow-2xl shadow-black/35"
+          className="relative mb-5 overflow-visible rounded-[30px] border border-[#B8FF2C]/18 bg-[linear-gradient(145deg,rgba(16,43,67,.96),rgba(6,18,32,.98)_58%,rgba(184,255,44,.09))] p-5 shadow-2xl shadow-black/35"
           style={{
             animation: 'hablooFloat 7s ease-in-out infinite, hablooPulse 5s ease-in-out infinite',
           }}
@@ -376,7 +376,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
               <span>Progreso</span>
               <span className="group relative inline-grid h-5 w-5 cursor-help place-items-center rounded-full border border-[#B8FF2C]/35 text-[10px] tracking-normal" tabIndex={0}>
                 ?
-                <span className="pointer-events-none fixed left-4 right-4 top-28 z-50 hidden max-w-[85vw] whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed tracking-normal text-white/78 shadow-2xl shadow-black/40 group-hover:block group-focus:block sm:absolute sm:left-0 sm:right-auto sm:top-7 sm:w-64 sm:max-w-none">
+                <span className="pointer-events-none fixed left-1/2 top-24 z-50 hidden w-[min(85vw,320px)] max-w-[min(85vw,320px)] -translate-x-1/2 whitespace-normal rounded-2xl border border-white/10 bg-[#071321] p-3 text-left text-[11px] font-semibold leading-relaxed tracking-normal text-white/78 shadow-2xl shadow-black/40 [word-break:normal] group-hover:block group-focus:block sm:absolute sm:left-0 sm:right-auto sm:top-7 sm:w-[min(85vw,320px)] sm:translate-x-0">
                   {acquiredWordsTooltip}
                 </span>
               </span>

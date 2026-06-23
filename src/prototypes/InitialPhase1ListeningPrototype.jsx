@@ -1485,50 +1485,52 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
               </div>
             </div>
 
-            <div className="mt-4 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0E263A] p-3">
-              <div className="grid grid-cols-4 items-center gap-2">
+            <div className="mt-4 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0E263A] px-3 py-3">
+              <div className="grid grid-cols-[1fr_1fr_72px_1fr] items-center gap-2 sm:grid-cols-[1fr_1fr_84px_1fr] sm:gap-3">
                 <button
                   type="button"
                   onClick={toggleShuffle}
                   disabled={sentences.length < 2}
                   aria-pressed={isShuffleOn}
-                  aria-label={isShuffleOn ? 'Desactivar shuffle' : 'Activar shuffle'}
-                  className={`flex min-h-14 items-center justify-center rounded-2xl border border-[#B8FF2C]/15 bg-[#102B43] text-[22px] font-semibold leading-none transition-all disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 ${
+                  aria-label="Shuffle"
+                  className={`flex h-12 min-w-0 items-center justify-center rounded-full border border-[#B8FF2C]/15 bg-[#102B43] text-[20px] font-semibold leading-none transition-all disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:text-[22px] ${
                     isShuffleOn
                       ? 'text-[#B8FF2C] shadow-[0_0_18px_rgba(184,255,44,0.12)]'
                       : 'text-white/42'
                   }`}
                 >
-                  {'Shuffle'}
+                  🔀
                 </button>
                 <button
                   type="button"
                   onClick={goToPrevious}
                   disabled={navigationHistory.length === 0}
-                  className="min-h-14 rounded-2xl border border-[#B8FF2C]/25 bg-[#102B43] px-2 text-xs font-semibold text-[#B8FF2C] disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+                  aria-label="Anterior"
+                  className="flex h-12 min-w-0 items-center justify-center rounded-full border border-[#B8FF2C]/20 bg-[#102B43] text-[20px] font-bold leading-none text-[#B8FF2C] transition-all disabled:cursor-not-allowed disabled:opacity-40 active:scale-95 sm:h-14 sm:text-[22px]"
                 >
-                  Anterior
+                  ⏮
                 </button>
                 <button
                   type="button"
                   onClick={isPlaying || isAutoPlayOn ? pauseListening : toggleAutoPlay}
                   aria-pressed={isAutoPlayOn}
-                  aria-label={isPlaying || isAutoPlayOn ? 'Pausar' : 'Activar auto play'}
-                  className={`flex min-h-14 items-center justify-center rounded-2xl border border-[#B8FF2C]/35 bg-[#102B43] text-sm font-black leading-none transition-all active:scale-95 ${
+                  aria-label={isPlaying || isAutoPlayOn ? 'Pausa' : 'Play'}
+                  className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#B8FF2C]/45 bg-[#102B43] text-[28px] font-black leading-none transition-all active:scale-95 sm:h-[72px] sm:w-[72px] sm:text-[32px] ${
                     isPlaying || isAutoPlayOn
-                      ? 'text-[#B8FF2C] shadow-[0_0_18px_rgba(184,255,44,0.16)]'
-                      : 'text-white/52'
+                      ? 'text-[#B8FF2C] shadow-[0_0_26px_rgba(184,255,44,0.22)]'
+                      : 'text-white/70 shadow-[0_0_18px_rgba(255,255,255,0.06)]'
                   }`}
                 >
-                  {isPlaying || isAutoPlayOn ? 'Pausa' : 'Play'}
+                  {isPlaying || isAutoPlayOn ? '⏸' : '▶'}
                 </button>
                 <button
                   type="button"
                   onClick={goToNext}
                   disabled={!canGoNext}
-                  className="min-h-14 rounded-2xl border border-[#B8FF2C]/25 bg-[#102B43] px-2 text-xs font-semibold text-[#B8FF2C] disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+                  aria-label="Siguiente"
+                  className="flex h-12 min-w-0 items-center justify-center rounded-full border border-[#B8FF2C]/20 bg-[#102B43] text-[20px] font-bold leading-none text-[#B8FF2C] transition-all disabled:cursor-not-allowed disabled:opacity-40 active:scale-95 sm:h-14 sm:text-[22px]"
                 >
-                  Siguiente
+                  ⏭
                 </button>
               </div>
             </div>

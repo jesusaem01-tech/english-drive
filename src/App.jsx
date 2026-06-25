@@ -189,7 +189,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0A1628] text-[#F0B429] flex flex-col">
       {screen === 'onboarding' && <Onboarding onComplete={completeOnboarding} />}
-      {screen === 'phase1' && <InitialPhase1ListeningPrototype onBack={() => navigate('home')} guestId={guestId} />}
+      {screen === 'phase1' && (
+        <InitialPhase1ListeningPrototype
+          onBack={() => navigate('home')}
+          onContinuePhase2={() => navigate('phase2')}
+          guestId={guestId}
+        />
+      )}
       {screen === 'phase2' && <Phase2Speak onBack={() => navigate('home')} guestId={guestId} />}
       {screen === 'phase3' && <Phase3Grammar onBack={() => navigate('home')} guestId={guestId} />}
       {screen === 'aichat' && <AIChat onBack={() => navigate('home')} guestId={guestId} />}
@@ -197,7 +203,12 @@ export default function App() {
         <DailyLifePhase1Prototype onBack={prototypeBackHome} guestId={guestId} />
       )}
       {screen === 'prototype-initial-phase1' && (
-        <InitialPhase1ListeningPrototype onBack={prototypeBackHome} guestId={guestId} isPrototype />
+        <InitialPhase1ListeningPrototype
+          onBack={prototypeBackHome}
+          onContinuePhase2={() => navigate('prototype-phase2-pronunciation')}
+          guestId={guestId}
+          isPrototype
+        />
       )}
       {screen === 'prototype-learning-pool' && (
         <LearningPoolPrototype onBack={prototypeBackHome} onNavigate={navigate} guestId={guestId} />

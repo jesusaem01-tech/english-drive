@@ -164,7 +164,7 @@ function getLearningPoolBag() {
       acquiredWords: masteredForCategory(category),
       total: TARGET_PER_INTEREST,
       color: interestColors[index % interestColors.length],
-      route: interest.toLowerCase() === 'vida diaria' ? 'prototype-daily-life-phase1' : 'prototype-initial-phase1',
+      route: 'prototype-initial-phase1',
     }
   })
 
@@ -207,7 +207,7 @@ const languageContexts = [
     phrases: 5,
     tutors: buildTutors(['Sarah', 'Emilio']),
     interests: [
-      { name: 'Vida diaria', current: 120, total: 300, color: 'from-[#B8FF2C] to-[#53E8B6]', route: 'prototype-daily-life-phase1' },
+      { name: 'Vida diaria', current: 120, total: 300, color: 'from-[#B8FF2C] to-[#53E8B6]', route: 'prototype-initial-phase1' },
       { name: 'Trabajo', current: 86, total: 300, color: 'from-[#44D7FF] to-[#7C5CFF]', route: 'prototype-initial-phase1' },
       { name: 'Familia', current: 64, total: 300, color: 'from-[#F0B429] to-[#B8FF2C]', route: 'prototype-initial-phase1' },
     ],

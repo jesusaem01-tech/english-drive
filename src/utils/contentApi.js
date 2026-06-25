@@ -13,16 +13,26 @@ export async function fetchContentSentences({
   level = 1,
   limit = 10,
 } = {}) {
-  const params = new URLSearchParams({
+  const requestPayload = {
     category,
-    level: String(level),
-    limit: String(limit),
+    level,
+    limit,
+  }
+  const params = new URLSearchParams({
+    category: requestPayload.category,
+    level: String(requestPayload.level),
+    limit: String(requestPayload.limit),
   })
+  const endpoint = `${API_BASE_URL}/content/sentences?${params}`
 
-  const response = await fetch(`${API_BASE_URL}/content/sentences?${params}`)
+  const response = await fetch(endpoint)
 
   if (!response.ok) {
-    throw new Error(`Content request failed with status ${response.status}`)
+    const error = new Error(`Content request failed with status ${response.status}`)
+    error.endpoint = endpoint
+    error.payload = requestPayload
+    error.status = response.status
+    throw error
   }
 
   const payload = await response.json()

@@ -174,9 +174,7 @@ function getHomeProfile(onboarding) {
 }
 
 function getInterestPhaseRoute(interest) {
-  return interest.toLowerCase() === 'vida diaria'
-    ? 'prototype-daily-life-phase1'
-    : 'prototype-initial-phase1'
+  return 'prototype-initial-phase1'
 }
 
 export default function HomeArchitecturePrototype({ onBack, onNavigate, onboarding }) {

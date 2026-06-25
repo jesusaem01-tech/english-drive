@@ -151,10 +151,7 @@ function loadPhase1Preferences() {
   try {
     const raw = localStorage.getItem(PHASE1_PREFERENCES_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    const repetitions = Math.max(
-      MIN_REPEAT_TARGET,
-      Math.min(MAX_REPEAT_TARGET, Number(parsed.repetitions) || DEFAULT_PHASE1_PREFERENCES.repetitions)
-    )
+    const repetitions = normalizeRepeatTarget(parsed.repetitions)
     const speedId = getSpeedIdFromRate(parsed.speed)
     const speedOption = SPEED_OPTIONS.find((option) => option.id === speedId) || SPEED_OPTIONS[2]
 
@@ -173,6 +170,13 @@ function loadPhase1Preferences() {
   }
 }
 
+function normalizeRepeatTarget(value) {
+  const numericTarget = Number(value)
+  if (!Number.isFinite(numericTarget)) return DEFAULT_PHASE1_PREFERENCES.repetitions
+
+  return Math.max(MIN_REPEAT_TARGET, Math.min(MAX_REPEAT_TARGET, Math.round(numericTarget)))
+}
+
 function savePhase1Preferences(partial) {
   const current = loadPhase1Preferences()
   const next = {
@@ -183,7 +187,13 @@ function savePhase1Preferences(partial) {
     ...partial,
   }
 
-  localStorage.setItem(PHASE1_PREFERENCES_KEY, JSON.stringify(next))
+  next.repetitions = normalizeRepeatTarget(next.repetitions)
+
+  try {
+    localStorage.setItem(PHASE1_PREFERENCES_KEY, JSON.stringify(next))
+  } catch (error) {
+    console.warn('[Fase1 preferences] No se pudieron guardar las preferencias', error)
+  }
 }
 
 function getStoredTutorProfile() {
@@ -599,12 +609,14 @@ function normalizeGymFallback(category = 'fitness', label = 'Fitness') {
 }
 
 async function loadCategorySet(category, fallbackItems = [], label = CATEGORY_LABELS[category]) {
+  const requestPayload = {
+    category,
+    level: getContentLevel(),
+    limit: TARGET_PER_CATEGORY,
+  }
+
   try {
-    const items = await fetchContentSentences({
-      category,
-      level: getContentLevel(),
-      limit: TARGET_PER_CATEGORY,
-    })
+    const items = await fetchContentSentences(requestPayload)
     const normalized = items
       .map((sentence) => normalizeBackendSentence(sentence, category, label))
       .filter((sentence) => isValidStudyText(sentence.sentence_en, [label]))
@@ -614,7 +626,14 @@ async function loadCategorySet(category, fallbackItems = [], label = CATEGORY_LA
       category,
       label
     )
-  } catch {
+  } catch (error) {
+    console.error('[Fase1 content fallback] Fallo endpoint de contenido; usando bolsa local/cache', {
+      endpoint: error?.endpoint || '/content/sentences',
+      payload: error?.payload || requestPayload,
+      status: error?.status,
+      message: error?.message,
+    })
+
     return ensureTargetSentenceCount(fallbackItems, category, label)
   }
 }
@@ -661,12 +680,12 @@ function createPhase1PoolCachePayload({ learningSet, categoryConfigs, categorySe
   }
 }
 
-function readPhase1PoolCache(signature = getPhase1PoolSignature()) {
+function readPhase1PoolCache(signature = getPhase1PoolSignature(), { allowStale = false } = {}) {
   try {
     const raw = localStorage.getItem(PHASE1_PHRASE_POOL_CACHE_KEY)
     const parsed = raw ? JSON.parse(raw) : null
     if (parsed?.version !== PHASE1_PHRASE_POOL_CACHE_VERSION) return null
-    if (parsed.signature !== signature) return null
+    if (!allowStale && parsed.signature !== signature) return null
     if (!Array.isArray(parsed.learningSet)) return null
 
     return {
@@ -674,6 +693,7 @@ function readPhase1PoolCache(signature = getPhase1PoolSignature()) {
       customPhraseTotal: Number(parsed.customPhraseTotal) || 0,
       selectedInterestTotal: Number(parsed.selectedInterestTotal) || 0,
       sourceNotes: Array.isArray(parsed.sourceNotes) ? parsed.sourceNotes : [],
+      signature: parsed.signature,
     }
   } catch {
     return null
@@ -781,9 +801,9 @@ function selectTutorVoice(voices, tutorProfile) {
 
 // Prototype note: Phase 2 should reuse this same combined 60-sentence learning set
 // for pronunciation practice after the Phase 1 listening flow is approved.
-export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = false }) {
+export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhase2, isPrototype = false }) {
   const initialPreferencesRef = useRef(loadPhase1Preferences())
-  const initialPoolCacheRef = useRef(readPhase1PoolCache())
+  const initialPoolCacheRef = useRef(readPhase1PoolCache(getPhase1PoolSignature(), { allowStale: true }))
   const [sentences, setSentences] = useState(() => initialPoolCacheRef.current?.learningSet || [])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [repeat, setRepeat] = useState(1)
@@ -819,9 +839,9 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   const wordTimerRef = useRef(null)
   const poolSignatureRef = useRef(getPhase1PoolSignature())
 
-  const loadInitialSet = useCallback(async ({ resetSession = false } = {}) => {
+  const loadInitialSet = useCallback(async ({ resetSession = false, allowStaleCache = true } = {}) => {
       const signature = getPhase1PoolSignature()
-      const cachedPool = readPhase1PoolCache(signature)
+      const cachedPool = readPhase1PoolCache(signature, { allowStale: allowStaleCache })
       if (cachedPool) {
         const learningSet = cachedPool.learningSet
         warnMissingPrototypePronunciations(learningSet)
@@ -830,7 +850,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
         setSelectedInterestTotal(cachedPool.selectedInterestTotal)
         setSourceNotes(cachedPool.sourceNotes)
         setLoading(false)
-        poolSignatureRef.current = signature
+        poolSignatureRef.current = cachedPool.signature || signature
 
         if (resetSession) {
           currentIndexRef.current = 0
@@ -925,7 +945,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
 
     async function loadAndApply() {
       if (ignore) return
-      await loadInitialSet({ resetSession: true })
+      await loadInitialSet({ resetSession: true, allowStaleCache: true })
     }
 
     loadAndApply()
@@ -934,7 +954,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       if (event?.type === 'storage' && !['habloo_interests', CUSTOM_PHRASES_KEY].includes(event.key)) return
       const nextSignature = getPhase1PoolSignature()
       if (nextSignature === poolSignatureRef.current) return
-      loadInitialSet()
+      loadInitialSet({ allowStaleCache: false })
     }
 
     window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, reloadWhenPoolInputsChange)
@@ -982,7 +1002,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
       }),
     [currentIndex, isShuffleOn, playedIndices, sentences.length]
   )
-  const canGoNext = currentIndex + 1 < sentences.length || nextUnplayedIndex !== null
+  const hasCompletedCurrentBag = isBagCompleted && nextUnplayedIndex === null
+  const canGoNext = sentences.length > 0 && !hasCompletedCurrentBag
 
   const hideTranslation = useCallback(() => {
     if (translationTimeoutRef.current) {
@@ -1037,7 +1058,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   }
 
   const updateRepeatTarget = (nextTarget) => {
-    const safeTarget = Math.max(MIN_REPEAT_TARGET, Math.min(MAX_REPEAT_TARGET, nextTarget))
+    const safeTarget = normalizeRepeatTarget(nextTarget)
     repeatTargetRef.current = safeTarget
     setRepeatTarget(safeTarget)
     savePhase1Preferences({ repetitions: safeTarget })
@@ -1331,6 +1352,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
   }
 
   const goToNext = () => {
+    if (hasCompletedCurrentBag) return
+
     markPlayed(currentIndex)
     const unplayedNextIndex = getNextUnplayedIndex({
       length: sentences.length,
@@ -1371,6 +1394,26 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
     }
   }
 
+  const repeatPhase1 = () => {
+    stopSpeech()
+    currentIndexRef.current = 0
+    repeatRef.current = 1
+    playedIndicesRef.current = []
+    navigationHistoryRef.current = []
+    setCurrentIndex(0)
+    setRepeat(1)
+    setPlayedIndices([])
+    setNavigationHistory([])
+    setIsBagCompleted(false)
+    hideTranslation()
+    setActiveWordIndex(null)
+  }
+
+  const continueToPhase2 = () => {
+    stopSpeech()
+    onContinuePhase2?.()
+  }
+
   useEffect(() => {
     return () => stopSpeech()
   }, [stopSpeech])
@@ -1408,6 +1451,9 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
           <p className="mt-1 text-xs font-semibold text-white/45">
             Tutor: {tutorName}
           </p>
+          <p className="mt-3 rounded-2xl border border-[#B8FF2C]/12 bg-[#102B43]/55 px-4 py-3 text-sm font-semibold leading-relaxed text-white/70">
+            Solo escucha. No necesitas entender todo ahora.
+          </p>
         </header>
 
         <div className="mb-5 h-3 overflow-hidden rounded-full bg-[#16364E]">
@@ -1423,22 +1469,51 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
           </div>
         )}
 
-        {!loading && currentSentence && (
+        {!loading && currentSentence && hasCompletedCurrentBag && (
+          <section className="flex flex-1 flex-col justify-center rounded-[28px] border border-[#B8FF2C]/22 bg-[#102B43] p-5 text-center shadow-[0_24px_70px_rgba(0,0,0,.18)]">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#B8FF2C]/75">
+              Fase 1 completa
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-white">
+              Escucha completada por hoy
+            </h2>
+            <p className="mt-4 text-sm font-medium leading-6 text-white/65">
+              No te preocupes si no entendiste todo. En esta fase solo estas entrenando tu oido con sonidos, ritmo y contexto.
+            </p>
+            <div className="mt-5 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0B1D2F] px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">
+                Siguiente paso recomendado
+              </p>
+              <p className="mt-2 text-lg font-semibold text-[#B8FF2C]">
+                Fase 2 · Pronunciación
+              </p>
+            </div>
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={continueToPhase2}
+                className="rounded-2xl bg-[#B8FF2C] px-4 py-3 text-sm font-bold text-[#071321] transition active:scale-95"
+              >
+                Continuar a Fase 2
+              </button>
+              <button
+                type="button"
+                onClick={repeatPhase1}
+                className="rounded-2xl border border-[#B8FF2C]/25 bg-[#0E263A] px-4 py-3 text-sm font-semibold text-[#B8FF2C] transition active:scale-95"
+              >
+                Repetir Fase 1
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!loading && currentSentence && !hasCompletedCurrentBag && (
           <>
             <div className="mb-4 flex justify-end">
               <span className="rounded-full border border-[#B8FF2C]/25 px-4 py-2 text-xs font-semibold text-[#B8FF2C]">
                 Frase {currentIndex + 1} de {totalActivePhraseCount}
               </span>
             </div>
-
-            {isBagCompleted && (
-              <div className="mb-4 rounded-2xl border border-[#B8FF2C]/20 bg-[#B8FF2C]/8 p-4">
-                <p className="text-sm font-semibold text-[#B8FF2C]">Bolsa completada</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/55">
-                  Todas las frases de esta bolsa ya fueron recorridas en esta sesión.
-                </p>
-              </div>
-            )}
 
             {/* Future correction mode can reuse this board for full sentence, difficult-word focus, word highlights, and phonetic help. */}
             <div
@@ -1611,7 +1686,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, isPrototype = 
                     </button>
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-white/55">
-                    Progreso: {repeat} / {repeatTarget}
+                    Recomendado: 3 a 6 repeticiones · Progreso: {repeat} / {repeatTarget}
                   </p>
                 </div>
               </div>

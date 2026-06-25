@@ -48,7 +48,7 @@ const DEFAULT_PHASE1_PREFERENCES = {
   repetitions: DEFAULT_REPEAT_TARGET,
   speed: DEFAULT_SPEECH_RATE,
   shuffle: false,
-  autoPlay: false,
+  autoPlay: true,
 }
 const INVALID_ENGLISH_PATTERNS = [
   /habloo will create/i,
@@ -127,6 +127,26 @@ function getStoredTutorName() {
   return localStorage.getItem('habloo_tutor_name') || 'Sarah'
 }
 
+function getTutorDisplayProfile(name = getStoredTutorName()) {
+  const normalizedName = String(name || '').trim().toLowerCase()
+
+  if (normalizedName === 'tommy') {
+    return {
+      name: 'Tommy',
+      avatar: 'T',
+      face: '👨🏽‍🏫',
+      accent: 'from-[#44D7FF] to-[#7C5CFF]',
+    }
+  }
+
+  return {
+    name: 'Sarah',
+    avatar: 'S',
+    face: '👩🏽‍🏫',
+    accent: 'from-[#B8FF2C] to-[#53E8B6]',
+  }
+}
+
 function getSpeedIdFromRate(rate) {
   const numericRate = Number(rate)
   const option = SPEED_OPTIONS.find((item) => item.rate === numericRate)
@@ -151,6 +171,7 @@ function loadPhase1Preferences() {
   try {
     const raw = localStorage.getItem(PHASE1_PREFERENCES_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
+    const hasStoredAutoPlay = Object.prototype.hasOwnProperty.call(parsed, 'autoPlay')
     const repetitions = normalizeRepeatTarget(parsed.repetitions)
     const speedId = getSpeedIdFromRate(parsed.speed)
     const speedOption = SPEED_OPTIONS.find((option) => option.id === speedId) || SPEED_OPTIONS[2]
@@ -160,7 +181,9 @@ function loadPhase1Preferences() {
       speed: speedOption.rate,
       speedId,
       shuffle: typeof parsed.shuffle === 'boolean' ? parsed.shuffle : DEFAULT_PHASE1_PREFERENCES.shuffle,
-      autoPlay: typeof parsed.autoPlay === 'boolean' ? parsed.autoPlay : DEFAULT_PHASE1_PREFERENCES.autoPlay,
+      autoPlay: hasStoredAutoPlay && typeof parsed.autoPlay === 'boolean'
+        ? parsed.autoPlay
+        : DEFAULT_PHASE1_PREFERENCES.autoPlay,
     }
   } catch {
     return {
@@ -823,6 +846,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   const [customPhraseTotal, setCustomPhraseTotal] = useState(() => initialPoolCacheRef.current?.customPhraseTotal || 0)
   const [selectedInterestTotal, setSelectedInterestTotal] = useState(() => initialPoolCacheRef.current?.selectedInterestTotal || 0)
   const [tutorName] = useState(getStoredTutorName)
+  const tutorDisplay = useMemo(() => getTutorDisplayProfile(tutorName), [tutorName])
 
   const isPlayingRef = useRef(false)
   const isAutoPlayRef = useRef(initialPreferencesRef.current.autoPlay)
@@ -1093,13 +1117,13 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setActiveWordIndex(null)
   }, [])
 
-  const stopSpeech = useCallback(() => {
+  const stopSpeech = useCallback(({ persistAutoPlay = true } = {}) => {
     isPlayingRef.current = false
     isAutoPlayRef.current = false
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
-    savePhase1Preferences({ autoPlay: false })
+    if (persistAutoPlay) savePhase1Preferences({ autoPlay: false })
     hideTranslation()
     cancelCurrentSpeech()
   }, [cancelCurrentSpeech, hideTranslation])
@@ -1121,7 +1145,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
-    savePhase1Preferences({ autoPlay: false })
     cancelCurrentSpeech()
   }, [cancelCurrentSpeech])
 
@@ -1195,7 +1218,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     const speechRate = speechRateRef.current
     const effectiveSpeechRate = getEffectiveSpeechRate(speechRate)
 
-    // TODO: Final production voice will use ElevenLabs based on selected tutor voice.
+    // TODO: Replace this phrase playback with ElevenLabs using the selected tutor voice.
     // Current Web Speech API is fallback prototype only.
     // TODO: Future ElevenLabs integration should use generated audio playbackRate or separate voice speed settings.
     // TODO: Future ElevenLabs integration should use real word-level timestamps if available.
@@ -1288,6 +1311,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
   const startAutoPlay = () => {
     if (!currentSentence) return
+    if (hasCompletedCurrentBag || isPlayingRef.current || utteranceRef.current) return
     isPlayingRef.current = true
     isAutoPlayRef.current = true
     currentIndexRef.current = currentIndex
@@ -1301,9 +1325,16 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   }
 
   useEffect(() => {
-    if (loading || !initialPreferencesRef.current.autoPlay || sentences.length === 0 || isPlayingRef.current) return
+    if (
+      loading ||
+      !initialPreferencesRef.current.autoPlay ||
+      sentences.length === 0 ||
+      hasCompletedCurrentBag ||
+      isPlayingRef.current ||
+      utteranceRef.current
+    ) return
     startAutoPlay()
-  }, [loading, sentences.length])
+  }, [hasCompletedCurrentBag, loading, sentences.length])
 
   const stopAutoPlay = () => {
     stopSpeech()
@@ -1366,7 +1397,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
     if (nextIndex === null) {
       setIsBagCompleted(true)
-      stopSpeech()
+      stopSpeech({ persistAutoPlay: false })
       return
     }
 
@@ -1395,7 +1426,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   }
 
   const repeatPhase1 = () => {
-    stopSpeech()
+    stopSpeech({ persistAutoPlay: false })
     currentIndexRef.current = 0
     repeatRef.current = 1
     playedIndicesRef.current = []
@@ -1410,12 +1441,12 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   }
 
   const continueToPhase2 = () => {
-    stopSpeech()
+    stopSpeech({ persistAutoPlay: false })
     onContinuePhase2?.()
   }
 
   useEffect(() => {
-    return () => stopSpeech()
+    return () => stopSpeech({ persistAutoPlay: false })
   }, [stopSpeech])
 
   useEffect(() => {
@@ -1430,7 +1461,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => {
-              stopSpeech()
+              stopSpeech({ persistAutoPlay: false })
               onBack()
             }}
             className="rounded-full border border-[#B8FF2C]/25 bg-[#102B43] px-4 py-2 text-sm font-semibold text-[#B8FF2C] active:scale-95"
@@ -1445,6 +1476,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
         <header className="mb-5">
           <p className="text-sm font-semibold text-[#B8FF2C]/75">Fase 1 · Escuchar</p>
           <h1 className="mt-2 text-3xl font-semibold leading-tight">Set inicial Habloo</h1>
+          {/* TODO: ElevenLabs should speak a short intro here with the selected tutor voice. */}
           <p className="mt-2 text-sm text-white/55">
             {selectedCategoriesCount} intereses · {basePhraseCount} frases + Mis Frases {customPhraseTotal}
           </p>
@@ -1474,12 +1506,30 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#B8FF2C]/75">
               Fase 1 completa
             </p>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <div className={`grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br ${tutorDisplay.accent} text-3xl shadow-[0_0_28px_rgba(184,255,44,.18)]`}>
+                <span aria-hidden="true">{tutorDisplay.face}</span>
+                <span className="sr-only">{tutorDisplay.avatar}</span>
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/42">
+                  Tutor
+                </p>
+                <p className="text-lg font-semibold text-white">{tutorDisplay.name}</p>
+              </div>
+            </div>
             <h2 className="mt-4 text-3xl font-semibold leading-tight text-white">
               Escucha completada por hoy
             </h2>
-            <p className="mt-4 text-sm font-medium leading-6 text-white/65">
-              No te preocupes si no entendiste todo. En esta fase solo estas entrenando tu oido con sonidos, ritmo y contexto.
-            </p>
+            {/* TODO: ElevenLabs should speak this completion message with the selected tutor voice. */}
+            <div className="mt-5 rounded-[24px] border border-white/10 bg-[#0B1D2F] p-4 text-left">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#B8FF2C]/60">
+                {tutorDisplay.name}
+              </p>
+              <p className="mt-2 text-sm font-medium leading-6 text-white/72">
+                Muy bien, terminamos la escucha de hoy. No te preocupes si no entendiste todo. En esta fase solo entrenas tu oído con sonidos, ritmo y contexto. Ahora sigamos con pronunciación.
+              </p>
+            </div>
             <div className="mt-5 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0B1D2F] px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">
                 Siguiente paso recomendado

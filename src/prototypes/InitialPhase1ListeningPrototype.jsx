@@ -839,6 +839,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   const [playedIndices, setPlayedIndices] = useState([])
   const [navigationHistory, setNavigationHistory] = useState([])
   const [isBagCompleted, setIsBagCompleted] = useState(false)
+  const [needsAutoplayGesture, setNeedsAutoplayGesture] = useState(false)
   const [showTranslation, setShowTranslation] = useState(false)
   const [activeWordIndex, setActiveWordIndex] = useState(null)
   const [loading, setLoading] = useState(() => !initialPoolCacheRef.current)
@@ -861,6 +862,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   const timeoutRef = useRef(null)
   const translationTimeoutRef = useRef(null)
   const wordTimerRef = useRef(null)
+  const speechStartTimeoutRef = useRef(null)
   const poolSignatureRef = useRef(getPhase1PoolSignature())
 
   const loadInitialSet = useCallback(async ({ resetSession = false, allowStaleCache = true } = {}) => {
@@ -1107,6 +1109,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     timeoutRef.current = null
     if (wordTimerRef.current) clearInterval(wordTimerRef.current)
     wordTimerRef.current = null
+    if (speechStartTimeoutRef.current) clearTimeout(speechStartTimeoutRef.current)
+    speechStartTimeoutRef.current = null
     if (
       window.speechSynthesis &&
       (window.speechSynthesis.speaking || window.speechSynthesis.pending || window.speechSynthesis.paused)
@@ -1123,6 +1127,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
+    setNeedsAutoplayGesture(false)
     if (persistAutoPlay) savePhase1Preferences({ autoPlay: false })
     hideTranslation()
     cancelCurrentSpeech()
@@ -1134,6 +1139,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setIsPlaying(false)
     setIsPaused(true)
     setIsAutoPlayOn(false)
+    setNeedsAutoplayGesture(false)
     savePhase1Preferences({ autoPlay: false })
     hideTranslation()
     cancelCurrentSpeech()
@@ -1145,6 +1151,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setIsPlaying(false)
     setIsPaused(false)
     setIsAutoPlayOn(false)
+    setNeedsAutoplayGesture(false)
     cancelCurrentSpeech()
   }, [cancelCurrentSpeech])
 
@@ -1212,6 +1219,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     isPlayingRef.current = true
     setIsPlaying(true)
     setIsPaused(false)
+    setNeedsAutoplayGesture(false)
     setRepeat(repeatCount)
 
     const words = splitWords(sentence.sentence_en)
@@ -1222,7 +1230,6 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     // Current Web Speech API is fallback prototype only.
     // TODO: Future ElevenLabs integration should use generated audio playbackRate or separate voice speed settings.
     // TODO: Future ElevenLabs integration should use real word-level timestamps if available.
-    startEstimatedWordTimer(words, speechRate)
     const utterance = new SpeechSynthesisUtterance(sentence.sentence_en)
     utterance.lang = 'en-US'
     utterance.rate = effectiveSpeechRate
@@ -1232,6 +1239,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       utterance.lang = tutorVoice.lang || utterance.lang
     }
     utteranceRef.current = utterance
+    let hasSpeechStarted = false
 
     console.log('[Fase1 autoplay]', {
       currentIndex: phraseIndex,
@@ -1239,6 +1247,18 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       repeatCount,
       autoPlay: isAutoPlayRef.current,
     })
+
+    utterance.onstart = () => {
+      if (utteranceRef.current !== utterance) return
+      hasSpeechStarted = true
+      if (speechStartTimeoutRef.current) clearTimeout(speechStartTimeoutRef.current)
+      speechStartTimeoutRef.current = null
+      isPlayingRef.current = true
+      setIsPlaying(true)
+      setIsPaused(false)
+      setNeedsAutoplayGesture(false)
+      startEstimatedWordTimer(words, speechRate)
+    }
 
     utterance.onboundary = (event) => {
       if (event.name !== 'word' || !Number.isFinite(event.charIndex)) return
@@ -1303,15 +1323,48 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
     utterance.onerror = () => {
       if (utteranceRef.current !== utterance) return
+      if (!hasSpeechStarted) {
+        utteranceRef.current = null
+        isPlayingRef.current = false
+        isAutoPlayRef.current = false
+        setIsPlaying(false)
+        setIsPaused(false)
+        setIsAutoPlayOn(false)
+        setActiveWordIndex(null)
+        setNeedsAutoplayGesture(true)
+        return
+      }
       finishAutoPlay()
     }
 
     window.speechSynthesis.speak(utterance)
+    speechStartTimeoutRef.current = window.setTimeout(() => {
+      if (utteranceRef.current !== utterance || hasSpeechStarted) return
+      console.warn('[Fase1 autoplay] Browser blocked initial speech; waiting for user gesture', {
+        currentIndex: phraseIndex,
+        repeatCount,
+      })
+      if (
+        window.speechSynthesis &&
+        (window.speechSynthesis.speaking || window.speechSynthesis.pending || window.speechSynthesis.paused)
+      ) {
+        window.speechSynthesis.cancel()
+      }
+      utteranceRef.current = null
+      isPlayingRef.current = false
+      isAutoPlayRef.current = false
+      setIsPlaying(false)
+      setIsPaused(false)
+      setIsAutoPlayOn(false)
+      setActiveWordIndex(null)
+      setNeedsAutoplayGesture(true)
+    }, 850)
   }, [cancelCurrentSpeech, finishAutoPlay, hideTranslation, sentences, startEstimatedWordTimer])
 
   const startAutoPlay = () => {
     if (!currentSentence) return
     if (hasCompletedCurrentBag || isPlayingRef.current || utteranceRef.current) return
+    setNeedsAutoplayGesture(false)
     isPlayingRef.current = true
     isAutoPlayRef.current = true
     currentIndexRef.current = currentIndex
@@ -1630,6 +1683,21 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
               </p>
               </div>
             </div>
+
+            {needsAutoplayGesture && (
+              <div className="mt-4 rounded-[22px] border border-[#B8FF2C]/25 bg-[#B8FF2C]/8 p-4 text-center">
+                <p className="text-sm font-semibold text-white/72">
+                  Pulsa para iniciar la escucha
+                </p>
+                <button
+                  type="button"
+                  onClick={startAutoPlay}
+                  className="mt-3 w-full rounded-2xl bg-[#B8FF2C] px-4 py-3 text-sm font-bold text-[#071321] transition active:scale-95"
+                >
+                  Empezar escucha
+                </button>
+              </div>
+            )}
 
             <div className="mt-4 rounded-[22px] border border-[#B8FF2C]/15 bg-[#0E263A] px-3 py-3">
               <div className="grid grid-cols-[1fr_1fr_72px_1fr] items-center gap-2 sm:grid-cols-[1fr_1fr_84px_1fr] sm:gap-3">

@@ -176,6 +176,8 @@ function getInitialScreen() {
   const queryScreen = params.get('screen')
   if (queryScreen) return normalizeScreen(queryScreen)
 
+  if (isMobileRuntime()) return OFFICIAL_HOME_SCREEN
+
   return hasStoredHomeCache() ? OFFICIAL_HOME_SCREEN : 'onboarding'
 }
 
@@ -186,7 +188,7 @@ function normalizeScreen(screen) {
 export default function App() {
   const isMobile = isMobileRuntime()
   const [screen, setScreen] = useState(getInitialScreen)
-  const [guestId, setGuestId] = useState(() => localStorage.getItem('habloo_guest_id'))
+  const [guestId, setGuestId] = useState(null)
   const [onboarding, setOnboarding] = useState(null)
 
   useEffect(() => {

@@ -119,6 +119,16 @@
 }
 
 @media (max-width: 768px) {
+  .mobile-runtime-performance .habloo-home-booting .habloo-home-glow,
+  .mobile-runtime-performance .habloo-home-booting [class*="blur-"] {
+    display: none !important;
+  }
+
+  .mobile-runtime-performance .habloo-home-booting .habloo-home-shell {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
   .mobile-runtime-performance [class*="blur-"] {
     filter: blur(20px) !important;
     opacity: 0.62;

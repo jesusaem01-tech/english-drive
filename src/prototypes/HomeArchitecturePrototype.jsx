@@ -64,7 +64,6 @@ const profileItems = [
   { label: 'Cerrar sesión', route: 'prototype-sign-out' },
 ]
 
-const fallbackInterests = ['Vida diaria', 'Trabajo', 'Viajes']
 let homeProfileMemoryCache = null
 let homeFirstRenderTimingStarted = false
 let homeFirstRenderTimingEnded = false
@@ -151,10 +150,10 @@ function formatTargetLanguage(value) {
 
 function getHomeProfile(onboarding) {
   const saved = onboarding || getStoredOnboarding()
-  const name = saved?.name || localStorage.getItem('habloo_name') || 'Andres'
+  const name = saved?.name || localStorage.getItem('habloo_name') || ''
   const tutor = localStorage.getItem('habloo_tutor_name') || saved?.tutor || 'Sarah'
   const storedInterests = getStoredInterests()
-  const interests = storedInterests.length ? storedInterests : saved?.interests?.length ? saved.interests : fallbackInterests
+  const interests = storedInterests.length ? storedInterests : saved?.interests?.length ? saved.interests : []
   const customPhrasesCount = getStoredCustomPhrasesCount()
   const masteredIds = getStoredArray(MASTERED_PHRASES_KEY)
   const coreUnitsKnown = getStoredArray(CORE_UNITS_KEY)
@@ -198,15 +197,15 @@ function getCachedHomeProfile(onboarding) {
 
 function getImmediateHomeProfile(onboarding) {
   const saved = onboarding || {}
-  const name = saved?.name || localStorage.getItem('habloo_name') || 'Andres'
-  const tutor = localStorage.getItem('habloo_tutor_name') || saved?.tutor || 'Sarah'
-  const interests = saved?.interests?.length ? saved.interests : fallbackInterests
+  const name = saved?.name || ''
+  const tutor = saved?.tutor || 'Sarah'
+  const interests = saved?.interests?.length ? saved.interests : []
 
   return {
     name,
     initial: name.charAt(0).toUpperCase(),
-    targetLanguage: formatTargetLanguage(saved?.targetLanguage || localStorage.getItem('habloo_target_language') || 'Inglés'),
-    level: saved?.level || localStorage.getItem('habloo_level') || 'No estoy seguro',
+    targetLanguage: formatTargetLanguage(saved?.targetLanguage || 'Inglés'),
+    level: saved?.level || 'No estoy seguro',
     tutor,
     activeTutors: saved?.activeTutors?.length ? saved.activeTutors : [tutor, 'Tutor IA'],
     interests,
@@ -241,6 +240,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
   const didLogLoadRef = useRef(false)
   const isMobileRef = useRef(isMobileRuntime())
   const [profile, setProfile] = useState(() => getCachedHomeProfile(onboarding))
+  const [hasHydratedProfile, setHasHydratedProfile] = useState(() => Boolean(homeProfileMemoryCache || onboarding))
   const coreProgress = (profile.coreUnitsKnown / totalWords) * 100
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -269,6 +269,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
     const refreshProfile = () => {
       homeProfileMemoryCache = getHomeProfile(onboarding)
       setProfile(homeProfileMemoryCache)
+      setHasHydratedProfile(true)
       if (!homeReadyTimingEnded) {
         homeReadyTimingEnded = true
         console.timeEnd("Home Ready")
@@ -317,7 +318,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
 
   return (
     <div
-      className="min-h-[100dvh] overflow-x-hidden px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white selection:bg-[#B8FF2C] selection:text-[#071321]"
+      className={`min-h-[100dvh] overflow-x-hidden px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white selection:bg-[#B8FF2C] selection:text-[#071321] ${hasHydratedProfile ? '' : 'habloo-home-booting'}`}
       style={{
         background:
           'radial-gradient(circle at 50% -12%, rgba(68, 215, 255, 0.2), transparent 34%), radial-gradient(circle at 12% 18%, rgba(10, 34, 64, 0.9), transparent 36%), linear-gradient(160deg, #04162b 0%, #071c36 48%, #0a2240 100%)',

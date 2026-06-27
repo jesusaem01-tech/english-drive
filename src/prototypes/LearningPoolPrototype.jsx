@@ -29,6 +29,8 @@ hotel, aeropuerto, maleta, reservación, pasaporte.
 Conversación:
 preguntas comunes, respuestas, saludos y expresiones cotidianas.`
 const fallbackInterests = ['Vida diaria', 'Trabajo', 'Viajes']
+let learningPoolMemoryCache = null
+let learningPoolProfileMemoryCache = null
 
 const interestCategoryMap = {
   'vida diaria': 'daily_life',
@@ -197,6 +199,11 @@ function getLearningPoolBag() {
   }
 }
 
+function getCachedLearningPoolBag() {
+  if (!learningPoolMemoryCache) learningPoolMemoryCache = getLearningPoolBag()
+  return learningPoolMemoryCache
+}
+
 const languageContexts = [
   {
     id: 'english',
@@ -308,15 +315,18 @@ function getProfile() {
   }
 }
 
+function getCachedProfile() {
+  if (!learningPoolProfileMemoryCache) learningPoolProfileMemoryCache = getProfile()
+  return learningPoolProfileMemoryCache
+}
+
 export default function LearningPoolPrototype({ onBack, onNavigate }) {
-  const profile = getProfile()
+  const [profile, setProfile] = useState(getCachedProfile)
+  const [hablooBag, setHablooBag] = useState(getCachedLearningPoolBag)
   const [selectedLanguageId, setSelectedLanguageId] = useState('english')
   const [lockedInterest, setLockedInterest] = useState(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [, setTutorRefresh] = useState(0)
-  const [, setCustomPhrasesRefresh] = useState(0)
   const profileRef = useRef(null)
-  const hablooBag = getLearningPoolBag()
   const selectedLanguage =
     selectedLanguageId === 'english'
       ? { ...languageContexts[0], ...hablooBag }
@@ -368,16 +378,24 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
       )
     }
 
-    setTutorRefresh((value) => value + 1)
+    learningPoolMemoryCache = getLearningPoolBag()
+    setHablooBag(learningPoolMemoryCache)
   }
 
   useEffect(() => {
-    const refreshCustomPhraseCounts = () => setCustomPhrasesRefresh((value) => value + 1)
-    window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCustomPhraseCounts)
-    window.addEventListener('storage', refreshCustomPhraseCounts)
+    const refreshCachedState = () => {
+      learningPoolMemoryCache = getLearningPoolBag()
+      learningPoolProfileMemoryCache = getProfile()
+      setHablooBag(learningPoolMemoryCache)
+      setProfile(learningPoolProfileMemoryCache)
+    }
+
+    window.setTimeout(refreshCachedState, 0)
+    window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCachedState)
+    window.addEventListener('storage', refreshCachedState)
     return () => {
-      window.removeEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCustomPhraseCounts)
-      window.removeEventListener('storage', refreshCustomPhraseCounts)
+      window.removeEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCachedState)
+      window.removeEventListener('storage', refreshCachedState)
     }
   }, [])
 

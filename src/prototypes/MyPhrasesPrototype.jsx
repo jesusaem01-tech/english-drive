@@ -4,20 +4,30 @@ const sampleInput = 'Necesito llamar al cliente mañana.'
 const OWNER_MODE = true
 const CUSTOM_PHRASES_KEY = 'habloo_custom_phrases'
 const CUSTOM_PHRASES_CHANGED_EVENT = 'habloo_custom_phrases_changed'
+let customPhrasesMemoryCache = null
 
 function getStoredCustomPhrases() {
+  if (Array.isArray(customPhrasesMemoryCache)) return customPhrasesMemoryCache
+
   try {
     const raw = localStorage.getItem(CUSTOM_PHRASES_KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
+    customPhrasesMemoryCache = Array.isArray(parsed) ? parsed : []
+    return customPhrasesMemoryCache
   } catch {
     return []
   }
 }
 
 function saveCustomPhrases(phrases) {
+  customPhrasesMemoryCache = phrases
   localStorage.setItem(CUSTOM_PHRASES_KEY, JSON.stringify(phrases))
-  const progress = JSON.parse(localStorage.getItem('habloo_progress') || '{}')
+  let progress = {}
+  try {
+    progress = JSON.parse(localStorage.getItem('habloo_progress') || '{}')
+  } catch {
+    progress = {}
+  }
   localStorage.setItem(
     'habloo_progress',
     JSON.stringify({

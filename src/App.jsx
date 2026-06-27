@@ -168,14 +168,16 @@ export default function App() {
   }, [])
 
   const navigate = (to) => {
+    const nextScreen = normalizeScreen(to)
+    setScreen(nextScreen)
+
     if (
       window.speechSynthesis &&
       (window.speechSynthesis.speaking || window.speechSynthesis.pending || window.speechSynthesis.paused)
     ) {
-      window.speechSynthesis.cancel()
+      window.setTimeout(() => window.speechSynthesis.cancel(), 0)
     }
-    setScreen(normalizeScreen(to))
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }))
   }
 
   const prototypeBackHome = () => navigate(OFFICIAL_HOME_SCREEN)

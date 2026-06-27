@@ -65,6 +65,7 @@ const profileItems = [
 ]
 
 const fallbackInterests = ['Vida diaria', 'Trabajo', 'Viajes']
+let homeProfileMemoryCache = null
 
 const interestCategoryMap = {
   'vida diaria': 'daily_life',
@@ -173,13 +174,21 @@ function getHomeProfile(onboarding) {
   }
 }
 
+function getCachedHomeProfile(onboarding) {
+  if (!homeProfileMemoryCache) {
+    homeProfileMemoryCache = getHomeProfile(onboarding)
+  }
+
+  return homeProfileMemoryCache
+}
+
 function getInterestPhaseRoute(interest) {
   return 'prototype-initial-phase1'
 }
 
 export default function HomeArchitecturePrototype({ onBack, onNavigate, onboarding }) {
-  const [customPhrasesVersion, setCustomPhrasesVersion] = useState(0)
-  const profile = getHomeProfile(onboarding)
+  const didLogLoadRef = useRef(false)
+  const [profile, setProfile] = useState(() => getCachedHomeProfile(onboarding))
   const coreProgress = (profile.coreUnitsKnown / totalWords) * 100
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -187,14 +196,29 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
   const profileRef = useRef(null)
 
   useEffect(() => {
-    const refreshCustomPhraseCounts = () => setCustomPhrasesVersion((version) => version + 1)
-    window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCustomPhraseCounts)
-    window.addEventListener('storage', refreshCustomPhraseCounts)
-    return () => {
-      window.removeEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCustomPhraseCounts)
-      window.removeEventListener('storage', refreshCustomPhraseCounts)
+    let ignore = false
+    console.time('home-load')
+
+    window.requestAnimationFrame(() => {
+      if (ignore || didLogLoadRef.current) return
+      didLogLoadRef.current = true
+      console.timeEnd('home-load')
+    })
+
+    const refreshProfile = () => {
+      homeProfileMemoryCache = getHomeProfile(onboarding)
+      setProfile(homeProfileMemoryCache)
     }
-  }, [])
+
+    window.setTimeout(refreshProfile, 0)
+    window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshProfile)
+    window.addEventListener('storage', refreshProfile)
+    return () => {
+      ignore = true
+      window.removeEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshProfile)
+      window.removeEventListener('storage', refreshProfile)
+    }
+  }, [onboarding])
 
   const openMenuRoute = (route) => {
     setIsMenuOpen(false)

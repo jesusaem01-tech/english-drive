@@ -44,6 +44,7 @@ const CORE_UNITS_KEY = 'habloo_core_units_known'
 const PHASE1_PHRASE_POOL_CACHE_KEY = 'habloo_phase1_phrase_pool'
 const PHASE1_PHRASE_POOL_CACHE_VERSION = 2
 const PHASE1_PREFERENCES_KEY = 'habloo_phase1_preferences'
+let phase1PoolMemoryCache = null
 const DEFAULT_PHASE1_PREFERENCES = {
   repetitions: DEFAULT_REPEAT_TARGET,
   speed: DEFAULT_SPEECH_RATE,
@@ -704,6 +705,20 @@ function createPhase1PoolCachePayload({ learningSet, categoryConfigs, categorySe
 }
 
 function readPhase1PoolCache(signature = getPhase1PoolSignature(), { allowStale = false } = {}) {
+  if (
+    phase1PoolMemoryCache?.version === PHASE1_PHRASE_POOL_CACHE_VERSION &&
+    Array.isArray(phase1PoolMemoryCache.learningSet) &&
+    (allowStale || phase1PoolMemoryCache.signature === signature)
+  ) {
+    return {
+      learningSet: phase1PoolMemoryCache.learningSet,
+      customPhraseTotal: Number(phase1PoolMemoryCache.customPhraseTotal) || 0,
+      selectedInterestTotal: Number(phase1PoolMemoryCache.selectedInterestTotal) || 0,
+      sourceNotes: Array.isArray(phase1PoolMemoryCache.sourceNotes) ? phase1PoolMemoryCache.sourceNotes : [],
+      signature: phase1PoolMemoryCache.signature,
+    }
+  }
+
   try {
     const raw = localStorage.getItem(PHASE1_PHRASE_POOL_CACHE_KEY)
     const parsed = raw ? JSON.parse(raw) : null
@@ -724,11 +739,57 @@ function readPhase1PoolCache(signature = getPhase1PoolSignature(), { allowStale 
 }
 
 function writePhase1PoolCache(payload) {
+  phase1PoolMemoryCache = payload
   try {
     localStorage.setItem(PHASE1_PHRASE_POOL_CACHE_KEY, JSON.stringify(payload))
   } catch {
     // localStorage can fail in private mode or when quota is full; the app can still rebuild.
   }
+}
+
+function createImmediatePhase1Pool(signature = getPhase1PoolSignature()) {
+  const interestLabels = getStoredInterestLabels()
+  const labels = interestLabels.length > 0 ? interestLabels : fallbackInterestLabels
+  const categoryConfigs = labels.map(getInterestCategoryConfig)
+  const categorySets = categoryConfigs.map((config, index) => {
+    if (config.fallbackCategory === 'real_estate') return normalizeRealEstateFallback()
+    if (config.fallbackCategory === 'gym') return normalizeGymFallback(config.category, config.label)
+    return ensureTargetSentenceCount(
+      createInterestFallback(config.label, config.category, index),
+      config.category,
+      config.label
+    )
+  })
+  const customPhraseSet = getCustomPhraseSet()
+  const learningSet = dedupeSentences(
+    [...interleaveSets(categorySets), ...customPhraseSet]
+      .map((sentence) => ({
+        ...sentence,
+        sentence_en: cleanEnglishText(sentence.sentence_en),
+      }))
+      .filter((sentence) =>
+        sentence.category === 'custom_phrases'
+          ? !!sentence.sentence_en
+          : isValidStudyText(sentence.sentence_en, labels)
+      )
+  )
+
+  return createPhase1PoolCachePayload({
+    learningSet,
+    categoryConfigs,
+    categorySets,
+    customPhraseTotal: learningSet.filter((sentence) => sentence.category === 'custom_phrases').length,
+    signature,
+  })
+}
+
+function getInitialPhase1Pool() {
+  const signature = getPhase1PoolSignature()
+  return (
+    readPhase1PoolCache(signature) ||
+    readPhase1PoolCache(signature, { allowStale: true }) ||
+    createImmediatePhase1Pool(signature)
+  )
 }
 
 function interleaveSets(sets) {
@@ -826,7 +887,8 @@ function selectTutorVoice(voices, tutorProfile) {
 // for pronunciation practice after the Phase 1 listening flow is approved.
 export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhase2, isPrototype = false }) {
   const initialPreferencesRef = useRef(loadPhase1Preferences())
-  const initialPoolCacheRef = useRef(readPhase1PoolCache(getPhase1PoolSignature(), { allowStale: true }))
+  const initialPoolCacheRef = useRef(getInitialPhase1Pool())
+  const didLogLoadRef = useRef(false)
   const [sentences, setSentences] = useState(() => initialPoolCacheRef.current?.learningSet || [])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [repeat, setRepeat] = useState(1)
@@ -842,7 +904,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   const [needsAutoplayGesture, setNeedsAutoplayGesture] = useState(false)
   const [showTranslation, setShowTranslation] = useState(false)
   const [activeWordIndex, setActiveWordIndex] = useState(null)
-  const [loading, setLoading] = useState(() => !initialPoolCacheRef.current)
+  const [loading, setLoading] = useState(() => !initialPoolCacheRef.current?.learningSet?.length)
   const [sourceNotes, setSourceNotes] = useState(() => initialPoolCacheRef.current?.sourceNotes || [])
   const [customPhraseTotal, setCustomPhraseTotal] = useState(() => initialPoolCacheRef.current?.customPhraseTotal || 0)
   const [selectedInterestTotal, setSelectedInterestTotal] = useState(() => initialPoolCacheRef.current?.selectedInterestTotal || 0)
@@ -863,9 +925,9 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   const translationTimeoutRef = useRef(null)
   const wordTimerRef = useRef(null)
   const speechStartTimeoutRef = useRef(null)
-  const poolSignatureRef = useRef(getPhase1PoolSignature())
+  const poolSignatureRef = useRef(initialPoolCacheRef.current?.signature || getPhase1PoolSignature())
 
-  const loadInitialSet = useCallback(async ({ resetSession = false, allowStaleCache = true } = {}) => {
+  const loadInitialSet = useCallback(async ({ resetSession = false, allowStaleCache = true, showLoading = true } = {}) => {
       const signature = getPhase1PoolSignature()
       const cachedPool = readPhase1PoolCache(signature, { allowStale: allowStaleCache })
       if (cachedPool) {
@@ -895,9 +957,10 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
         return
       }
 
-      setLoading(true)
+      if (showLoading) setLoading(true)
       const interestLabels = getStoredInterestLabels()
-      const categoryConfigs = interestLabels.map(getInterestCategoryConfig)
+      const activeInterestLabels = interestLabels.length > 0 ? interestLabels : fallbackInterestLabels
+      const categoryConfigs = activeInterestLabels.map(getInterestCategoryConfig)
       const categorySets = await Promise.all(
         categoryConfigs.map((config, index) => {
           let fallback = createInterestFallback(config.label, config.category, index)
@@ -925,7 +988,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
           .filter((sentence) =>
             sentence.category === 'custom_phrases'
               ? !!sentence.sentence_en
-              : isValidStudyText(sentence.sentence_en, interestLabels)
+              : isValidStudyText(sentence.sentence_en, activeInterestLabels)
           )
       )
       const validCustomPhraseTotal = learningSet.filter((sentence) => sentence.category === 'custom_phrases').length
@@ -968,19 +1031,26 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
   useEffect(() => {
     let ignore = false
+    console.time('phase1-load')
+
+    window.requestAnimationFrame(() => {
+      if (ignore || didLogLoadRef.current) return
+      didLogLoadRef.current = true
+      console.timeEnd('phase1-load')
+    })
 
     async function loadAndApply() {
       if (ignore) return
-      await loadInitialSet({ resetSession: true, allowStaleCache: true })
+      await loadInitialSet({ resetSession: false, allowStaleCache: false, showLoading: false })
     }
 
-    loadAndApply()
+    window.setTimeout(loadAndApply, 0)
 
     const reloadWhenPoolInputsChange = (event) => {
       if (event?.type === 'storage' && !['habloo_interests', CUSTOM_PHRASES_KEY].includes(event.key)) return
       const nextSignature = getPhase1PoolSignature()
       if (nextSignature === poolSignatureRef.current) return
-      loadInitialSet({ allowStaleCache: false })
+      loadInitialSet({ allowStaleCache: false, showLoading: false })
     }
 
     window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, reloadWhenPoolInputsChange)
@@ -1494,8 +1564,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   }
 
   const continueToPhase2 = () => {
-    stopSpeech({ persistAutoPlay: false })
     onContinuePhase2?.()
+    window.setTimeout(() => stopSpeech({ persistAutoPlay: false }), 0)
   }
 
   useEffect(() => {
@@ -1514,8 +1584,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => {
-              stopSpeech({ persistAutoPlay: false })
               onBack()
+              window.setTimeout(() => stopSpeech({ persistAutoPlay: false }), 0)
             }}
             className="rounded-full border border-[#B8FF2C]/25 bg-[#102B43] px-4 py-2 text-sm font-semibold text-[#B8FF2C] active:scale-95"
           >

@@ -292,6 +292,22 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
     onNavigate?.(route)
   }
 
+  const navigateFromHome = (route) => {
+    setIsMenuOpen(false)
+    setIsProfileOpen(false)
+    onNavigate?.(route)
+  }
+
+  useEffect(() => {
+    console.log("[UI overlay state]", {
+      screen: 'home',
+      menuOpen: isMenuOpen,
+      profileOpen: isProfileOpen,
+      tooltipOpen: false,
+      isBooting: !hasHydratedProfile,
+    })
+  }, [hasHydratedProfile, isMenuOpen, isProfileOpen])
+
   useEffect(() => {
     if (!isMenuOpen) return undefined
 
@@ -511,7 +527,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
               <button
                 key={card.title}
                 type="button"
-                onClick={() => onNavigate?.(card.route)}
+                onClick={() => navigateFromHome(card.route)}
                 className="habloo-home-learning-card group flex w-full items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.055] p-3.5 text-left shadow-lg shadow-black/18 transition duration-300 hover:-translate-y-0.5 hover:border-[#B8FF2C]/28 hover:bg-white/[0.075] hover:shadow-[#B8FF2C]/10 active:scale-[0.99]"
               >
                 <span
@@ -538,7 +554,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
         <section className="mb-5">
           <button
             type="button"
-            onClick={() => onNavigate?.('prototype-my-phrases')}
+            onClick={() => navigateFromHome('prototype-my-phrases')}
             className="habloo-home-phrases-card group relative w-full overflow-hidden rounded-[24px] border border-[#F0B429]/22 bg-[#F0B429]/10 p-4 text-left shadow-lg shadow-[#F0B429]/8 transition duration-300 hover:-translate-y-0.5 hover:border-[#F0B429]/38 hover:bg-[#F0B429]/14 active:scale-[0.99]"
           >
             <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-[#F0B429]/14 blur-2xl" />
@@ -574,7 +590,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
               <button
                 key={interest.label}
                 type="button"
-                onClick={() => onNavigate?.(getInterestPhaseRoute(interest.label))}
+                onClick={() => navigateFromHome(getInterestPhaseRoute(interest.label))}
                 className="habloo-home-interest-card relative min-h-[92px] overflow-hidden rounded-[24px] border border-[#44D7FF]/18 bg-[#44D7FF]/8 p-3.5 text-left shadow-lg shadow-[#44D7FF]/5 transition duration-300 hover:-translate-y-0.5 hover:border-[#44D7FF]/34 hover:bg-[#44D7FF]/12 active:scale-[0.99]"
               >
                 <div className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[#44D7FF]/10 blur-2xl" />
@@ -595,7 +611,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
         <section className="pb-2">
           <button
             type="button"
-            onClick={() => onNavigate?.('prototype-learning-pool')}
+            onClick={() => navigateFromHome('prototype-learning-pool')}
             className="habloo-home-more-button w-full rounded-[24px] border border-white/10 bg-white/[0.055] px-4 py-3 text-center text-sm font-semibold text-[#B8FF2C]/78 shadow-lg shadow-black/15 transition duration-300 hover:-translate-y-0.5 hover:border-[#B8FF2C]/28 hover:bg-[#B8FF2C]/10 active:scale-[0.99]"
           >
             Ver más → Habloo

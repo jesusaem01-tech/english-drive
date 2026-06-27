@@ -320,13 +320,13 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
         }
       `}</style>
 
-      <div className="pointer-events-none fixed inset-0">
+      <div className="habloo-home-glow pointer-events-none fixed inset-0">
         <div className="absolute left-1/2 top-[-160px] h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-[#44D7FF]/14 blur-[92px]" />
         <div className="absolute bottom-[-180px] left-[-140px] h-[320px] w-[320px] rounded-full bg-[#0A86FF]/12 blur-[90px]" />
         <div className="absolute bottom-[16%] right-[-170px] h-[300px] w-[300px] rounded-full bg-[#B8FF2C]/7 blur-[95px]" />
       </div>
 
-      <main className="relative mx-auto flex min-h-[calc(100dvh-32px)] w-full max-w-[430px] flex-col overflow-visible rounded-[34px] border border-white/10 bg-[#071321]/92 p-4 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-2xl sm:p-5">
+      <main className="habloo-home-shell relative mx-auto flex min-h-[calc(100dvh-32px)] w-full max-w-[430px] flex-col overflow-visible rounded-[34px] border border-white/10 bg-[#071321]/92 p-4 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-2xl sm:p-5">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#B8FF2C]/45 to-transparent" />
 
         <header className="mb-6 flex items-center justify-between gap-3">
@@ -339,7 +339,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
               }}
               aria-label="Abrir menú"
               aria-expanded={isMenuOpen}
-              className={`grid h-11 w-11 place-items-center rounded-full border bg-white/[0.055] shadow-lg transition duration-300 hover:border-[#B8FF2C]/35 hover:bg-[#B8FF2C]/10 active:scale-95 ${
+              className={`habloo-home-icon-button grid h-11 w-11 place-items-center rounded-full border bg-white/[0.055] shadow-lg transition duration-300 hover:border-[#B8FF2C]/35 hover:bg-[#B8FF2C]/10 active:scale-95 ${
                 isMenuOpen
                   ? 'border-[#B8FF2C]/38 text-[#B8FF2C] shadow-[0_0_28px_rgba(184,255,44,.16)]'
                   : 'border-white/10 text-white/90 shadow-black/20'
@@ -357,13 +357,13 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
             </button>
 
             {isMenuOpen && (
-              <div className="absolute left-0 top-[52px] w-56 divide-y divide-[#B8FF2C]/[0.08] overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(7,19,33,0.94)] p-2 shadow-[0_24px_70px_rgba(0,0,0,.55)] backdrop-blur-xl">
+              <div className="habloo-home-menu absolute left-0 top-[52px] w-56 divide-y divide-[#B8FF2C]/[0.08] overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(7,19,33,0.94)] p-2 shadow-[0_24px_70px_rgba(0,0,0,.55)] backdrop-blur-xl">
                 {menuItems.map((item) => (
                   <button
                     key={item.label}
                     type="button"
                     onClick={() => openMenuRoute(item.route)}
-                    className="flex w-full items-center justify-between rounded-[18px] px-3 py-2.5 text-left text-sm font-semibold text-white/78 transition duration-300 hover:bg-white/[0.065] hover:text-white active:scale-[0.99]"
+                    className="habloo-home-menu-item flex w-full items-center justify-between rounded-[18px] px-3 py-2.5 text-left text-sm font-semibold text-white/78 transition duration-300 hover:bg-white/[0.065] hover:text-white active:scale-[0.99]"
                   >
                     <span>{item.label}</span>
                     <span className="text-xs text-[#B8FF2C]/58">›</span>
@@ -374,23 +374,23 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
           </div>
 
           <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-2xl bg-[#B8FF2C] text-sm font-black text-[#071321] shadow-[0_0_24px_rgba(184,255,44,.35)]">
+            <div className="habloo-home-logo grid h-8 w-8 place-items-center rounded-2xl bg-[#B8FF2C] text-sm font-black text-[#071321] shadow-[0_0_24px_rgba(184,255,44,.35)]">
               H
             </div>
             <div className="min-w-0">
               <p className="truncate text-[15px] font-semibold leading-tight text-white">
                 Habloo
               </p>
-              <p className="truncate text-[11px] font-medium text-white/45">
+              <p className="habloo-home-header-muted truncate text-[11px] font-medium text-white/45">
                 Hola, {profile.name}
               </p>
-              <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#44D7FF]/70">
+              <p className="habloo-home-header-blue truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#44D7FF]/70">
                 {profile.targetLanguage}
               </p>
-              <p className="truncate text-[10px] font-semibold text-white/42">
+              <p className="habloo-home-header-muted truncate text-[10px] font-semibold text-white/42">
                 Nivel: {profile.level}
               </p>
-              <p className="truncate text-[10px] font-semibold text-[#B8FF2C]/55">
+              <p className="habloo-home-header-green truncate text-[10px] font-semibold text-[#B8FF2C]/55">
                 Tutor: {profile.tutor}
               </p>
             </div>
@@ -405,19 +405,19 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
               }}
               aria-label="Abrir perfil"
               aria-expanded={isProfileOpen}
-              className="grid h-11 w-11 place-items-center rounded-full border border-[#B8FF2C]/18 bg-[#B8FF2C]/8 text-sm font-black text-[#B8FF2C] shadow-[0_0_28px_rgba(184,255,44,.08)] transition active:scale-95"
+              className="habloo-home-icon-button grid h-11 w-11 place-items-center rounded-full border border-[#B8FF2C]/18 bg-[#B8FF2C]/8 text-sm font-black text-[#B8FF2C] shadow-[0_0_28px_rgba(184,255,44,.08)] transition active:scale-95"
             >
               {profile.initial}
             </button>
 
             {isProfileOpen && (
-              <div className="absolute right-0 top-[52px] w-56 divide-y divide-[#B8FF2C]/[0.08] overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(7,19,33,0.94)] p-2 shadow-[0_24px_70px_rgba(0,0,0,.55)] backdrop-blur-xl">
+              <div className="habloo-home-menu absolute right-0 top-[52px] w-56 divide-y divide-[#B8FF2C]/[0.08] overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(7,19,33,0.94)] p-2 shadow-[0_24px_70px_rgba(0,0,0,.55)] backdrop-blur-xl">
                 {profileItems.map((item) => (
                   <button
                     key={item.label}
                     type="button"
                     onClick={() => openMenuRoute(item.route)}
-                    className="flex w-full items-center justify-between rounded-[18px] px-3 py-2.5 text-left text-sm font-semibold text-white/78 transition duration-300 hover:bg-white/[0.065] hover:text-white active:scale-[0.99]"
+                    className="habloo-home-menu-item flex w-full items-center justify-between rounded-[18px] px-3 py-2.5 text-left text-sm font-semibold text-white/78 transition duration-300 hover:bg-white/[0.065] hover:text-white active:scale-[0.99]"
                   >
                     <span>{item.label}</span>
                     <span className="text-xs text-[#B8FF2C]/58">›</span>
@@ -429,7 +429,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
         </header>
 
         <section
-          className="relative mb-5 overflow-visible rounded-[30px] border border-[#B8FF2C]/18 bg-[linear-gradient(145deg,rgba(16,43,67,.96),rgba(6,18,32,.98)_58%,rgba(184,255,44,.09))] p-5 shadow-2xl shadow-black/35"
+          className="habloo-home-progress-card relative mb-5 overflow-visible rounded-[30px] border border-[#B8FF2C]/18 bg-[linear-gradient(145deg,rgba(16,43,67,.96),rgba(6,18,32,.98)_58%,rgba(184,255,44,.09))] p-5 shadow-2xl shadow-black/35"
           style={{
             animation: 'hablooFloat 7s ease-in-out infinite, hablooPulse 5s ease-in-out infinite',
           }}
@@ -490,10 +490,10 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
                 key={card.title}
                 type="button"
                 onClick={() => onNavigate?.(card.route)}
-                className="group flex w-full items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.055] p-3.5 text-left shadow-lg shadow-black/18 transition duration-300 hover:-translate-y-0.5 hover:border-[#B8FF2C]/28 hover:bg-white/[0.075] hover:shadow-[#B8FF2C]/10 active:scale-[0.99]"
+                className="habloo-home-learning-card group flex w-full items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.055] p-3.5 text-left shadow-lg shadow-black/18 transition duration-300 hover:-translate-y-0.5 hover:border-[#B8FF2C]/28 hover:bg-white/[0.075] hover:shadow-[#B8FF2C]/10 active:scale-[0.99]"
               >
                 <span
-                  className={`grid h-12 w-12 shrink-0 place-items-center rounded-[18px] bg-gradient-to-br ${card.accent} text-xl shadow-inner shadow-white/5 transition duration-300 group-hover:scale-105`}
+                  className={`habloo-home-card-icon grid h-12 w-12 shrink-0 place-items-center rounded-[18px] bg-gradient-to-br ${card.accent} text-xl shadow-inner shadow-white/5 transition duration-300 group-hover:scale-105`}
                 >
                   {card.icon}
                 </span>
@@ -501,11 +501,11 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
                   <span className="block truncate text-[14px] font-semibold text-white">
                     {card.title}
                   </span>
-                  <span className="mt-0.5 block truncate text-xs font-medium text-white/45">
+                  <span className="habloo-home-card-subtitle mt-0.5 block truncate text-xs font-medium text-white/45">
                     {card.subtitle}
                   </span>
                 </span>
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#B8FF2C]/38 bg-[#B8FF2C]/18 text-[22px] font-black leading-none text-[#B8FF2C] shadow-[0_0_24px_rgba(184,255,44,.18)] transition duration-300 group-hover:scale-105 group-hover:border-[#B8FF2C]/70 group-hover:bg-[#B8FF2C]/92 group-hover:text-[#071321] group-hover:shadow-[0_0_34px_rgba(184,255,44,.34)]">
+                <span className="habloo-home-play-button grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#B8FF2C]/38 bg-[#B8FF2C]/18 text-[22px] font-black leading-none text-[#B8FF2C] shadow-[0_0_24px_rgba(184,255,44,.18)] transition duration-300 group-hover:scale-105 group-hover:border-[#B8FF2C]/70 group-hover:bg-[#B8FF2C]/92 group-hover:text-[#071321] group-hover:shadow-[0_0_34px_rgba(184,255,44,.34)]">
                   {index === 0 ? '▶' : '▶'}
                 </span>
               </button>
@@ -517,7 +517,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
           <button
             type="button"
             onClick={() => onNavigate?.('prototype-my-phrases')}
-            className="group relative w-full overflow-hidden rounded-[24px] border border-[#F0B429]/22 bg-[#F0B429]/10 p-4 text-left shadow-lg shadow-[#F0B429]/8 transition duration-300 hover:-translate-y-0.5 hover:border-[#F0B429]/38 hover:bg-[#F0B429]/14 active:scale-[0.99]"
+            className="habloo-home-phrases-card group relative w-full overflow-hidden rounded-[24px] border border-[#F0B429]/22 bg-[#F0B429]/10 p-4 text-left shadow-lg shadow-[#F0B429]/8 transition duration-300 hover:-translate-y-0.5 hover:border-[#F0B429]/38 hover:bg-[#F0B429]/14 active:scale-[0.99]"
           >
             <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-[#F0B429]/14 blur-2xl" />
             <div className="relative flex items-center justify-between gap-4">
@@ -528,7 +528,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
                 <p className="mt-2 text-lg font-semibold leading-tight text-white">
                   {profile.customPhrasesCount} frases personales
                 </p>
-                <p className="mt-1 text-xs font-medium text-white/48">
+                <p className="habloo-home-card-subtitle mt-1 text-xs font-medium text-white/48">
                   Estado activo · Acceso rápido
                 </p>
               </div>
@@ -553,7 +553,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
                 key={interest.label}
                 type="button"
                 onClick={() => onNavigate?.(getInterestPhaseRoute(interest.label))}
-                className="relative min-h-[92px] overflow-hidden rounded-[24px] border border-[#44D7FF]/18 bg-[#44D7FF]/8 p-3.5 text-left shadow-lg shadow-[#44D7FF]/5 transition duration-300 hover:-translate-y-0.5 hover:border-[#44D7FF]/34 hover:bg-[#44D7FF]/12 active:scale-[0.99]"
+                className="habloo-home-interest-card relative min-h-[92px] overflow-hidden rounded-[24px] border border-[#44D7FF]/18 bg-[#44D7FF]/8 p-3.5 text-left shadow-lg shadow-[#44D7FF]/5 transition duration-300 hover:-translate-y-0.5 hover:border-[#44D7FF]/34 hover:bg-[#44D7FF]/12 active:scale-[0.99]"
               >
                 <div className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[#44D7FF]/10 blur-2xl" />
                 <p className="relative text-[11px] font-bold uppercase tracking-[0.18em] text-[#44D7FF]/68">
@@ -562,7 +562,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
                 <p className="relative mt-3 text-sm font-semibold leading-tight text-white">
                   {interest.label}
                 </p>
-                <p className="relative mt-2 text-xs font-medium text-white/45">
+                <p className="habloo-home-card-subtitle relative mt-2 text-xs font-medium text-white/45">
                   {interest.acquiredWords} palabras adquiridas
                 </p>
               </button>
@@ -574,7 +574,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
           <button
             type="button"
             onClick={() => onNavigate?.('prototype-learning-pool')}
-            className="w-full rounded-[24px] border border-white/10 bg-white/[0.055] px-4 py-3 text-center text-sm font-semibold text-[#B8FF2C]/78 shadow-lg shadow-black/15 transition duration-300 hover:-translate-y-0.5 hover:border-[#B8FF2C]/28 hover:bg-[#B8FF2C]/10 active:scale-[0.99]"
+            className="habloo-home-more-button w-full rounded-[24px] border border-white/10 bg-white/[0.055] px-4 py-3 text-center text-sm font-semibold text-[#B8FF2C]/78 shadow-lg shadow-black/15 transition duration-300 hover:-translate-y-0.5 hover:border-[#B8FF2C]/28 hover:bg-[#B8FF2C]/10 active:scale-[0.99]"
           >
             Ver más → Habloo
           </button>

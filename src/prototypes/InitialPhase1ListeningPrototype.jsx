@@ -522,11 +522,12 @@ function getCustomPhraseSet() {
       category_label: 'Mis Frases',
       sentence_en: isValidStudyText(phrase.english) ? phrase.english : phrase.originalText,
       translation_es: phrase.phrase.spanish || phrase.originalText || '',
-      phonetic_es: phrase.phrase.pronunciation || '',
-      pronunciation: '',
+      phonetic_es: phrase.phrase.pronunciation_simple || phrase.phrase.pronunciation || '',
+      pronunciation: phrase.phrase.pronunciation || '',
       ipa: '',
       scene: 'Mis Frases',
-      is_pending_translation: !isValidStudyText(phrase.english),
+      notes: phrase.phrase.notes || '',
+      is_pending_translation: phrase.phrase.status === 'pending_transform' || !isValidStudyText(phrase.english),
     }))
 }
 

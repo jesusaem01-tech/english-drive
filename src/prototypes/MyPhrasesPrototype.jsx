@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { API_BASE_URL } from '../utils/apiConfig.js'
 
 const sampleInput = 'Necesito llamar al cliente mañana.'
 const OWNER_MODE = true
 const CUSTOM_PHRASES_KEY = 'habloo_custom_phrases'
 const CUSTOM_PHRASES_CHANGED_EVENT = 'habloo_custom_phrases_changed'
+const PHASE1_PHRASE_POOL_CACHE_KEY = 'habloo_phase1_phrase_pool'
 let customPhrasesMemoryCache = null
 
 function getStoredCustomPhrases() {
@@ -22,6 +24,7 @@ function getStoredCustomPhrases() {
 function saveCustomPhrases(phrases) {
   customPhrasesMemoryCache = phrases
   localStorage.setItem(CUSTOM_PHRASES_KEY, JSON.stringify(phrases))
+  localStorage.removeItem(PHASE1_PHRASE_POOL_CACHE_KEY)
   let progress = {}
   try {
     progress = JSON.parse(localStorage.getItem('habloo_progress') || '{}')
@@ -47,7 +50,7 @@ function normalizePhraseText(text) {
     .replace(/\s+/g, ' ')
 }
 
-function processPhrase(spanish) {
+async function transformPhrase(spanish) {
   // TODO: Later connect to backend/Supabase custom sentences.
   // TODO: Later consume credits based on plan.
   // TODO: Later generate ipa, phonetic_es and audio with selected tutor voice.
@@ -64,6 +67,55 @@ function processPhrase(spanish) {
   }
 }
 
+async function transformPhraseWithBackend(spanish) {
+  const response = await fetch(`${API_BASE_URL}/custom-phrases/transform`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      spanish,
+      target_language: 'en-US',
+      level: 'basic',
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Transform failed with status ${response.status}`)
+  }
+
+  const data = await response.json()
+  if (!data?.success) {
+    throw new Error('Transform response was not successful')
+  }
+
+  return {
+    spanish: data.spanish || spanish,
+    english: data.english || '',
+    pronunciation: data.pronunciation || '',
+    pronunciation_simple: data.pronunciation_simple || '',
+    pronunciation_slow: data.pronunciation_slow || '',
+    pronunciation_focus: data.pronunciation_focus || '',
+    notes: data.notes || '',
+    createdAt: new Date().toISOString(),
+    source: 'openai',
+  }
+}
+
+function createPendingPhrase(spanish) {
+  return {
+    spanish,
+    english: '',
+    pronunciation: '',
+    pronunciation_simple: '',
+    pronunciation_slow: '',
+    pronunciation_focus: '',
+    notes: '',
+    createdAt: new Date().toISOString(),
+    status: 'pending_transform',
+  }
+}
+
 export default function MyPhrasesPrototype({ onBack }) {
   const [phrases, setPhrases] = useState(getStoredCustomPhrases)
   const [isCreating, setIsCreating] = useState(false)
@@ -72,6 +124,7 @@ export default function MyPhrasesPrototype({ onBack }) {
   const [expandedId, setExpandedId] = useState(null)
   const [draft, setDraft] = useState('')
   const [importDraft, setImportDraft] = useState('')
+  const [createMessage, setCreateMessage] = useState('')
 
   const isEditing = editingId !== null
   const canSaveDraft = draft.trim().length > 0
@@ -91,6 +144,7 @@ export default function MyPhrasesPrototype({ onBack }) {
   const openCreate = () => {
     setEditingId(null)
     setDraft('')
+    setCreateMessage('')
     setIsImporting(false)
     setIsCreating(true)
   }
@@ -98,16 +152,29 @@ export default function MyPhrasesPrototype({ onBack }) {
   const openImport = () => {
     setEditingId(null)
     setDraft('')
+    setCreateMessage('')
     setImportDraft('')
     setIsCreating(false)
     setIsImporting(true)
   }
 
-  const savePhrase = () => {
+  const savePhrase = async () => {
     const spanish = draft.trim()
-    if (!spanish) return
+    if (!spanish || isCreating === 'saving') return
 
-    const processed = processPhrase(spanish)
+    setIsCreating('saving')
+    setCreateMessage('Creando con Sarah...')
+
+    let processed
+    let fallbackMessage = ''
+
+    try {
+      processed = await transformPhraseWithBackend(spanish)
+    } catch (error) {
+      console.warn('[Mis Frases] No se pudo transformar la frase', error)
+      processed = createPendingPhrase(spanish)
+      fallbackMessage = 'No pude crear la versión natural todavía. La guardé como pendiente.'
+    }
 
     if (isEditing) {
       setPhrases((current) => {
@@ -148,6 +215,7 @@ export default function MyPhrasesPrototype({ onBack }) {
     setIsCreating(false)
     setEditingId(null)
     setDraft('')
+    setCreateMessage(fallbackMessage)
   }
 
   const importPhrases = () => {
@@ -170,7 +238,7 @@ export default function MyPhrasesPrototype({ onBack }) {
         spanish,
         original_es: spanish,
         text: spanish,
-        ...processPhrase(spanish),
+        ...createPendingPhrase(spanish),
       })
     })
 
@@ -191,6 +259,7 @@ export default function MyPhrasesPrototype({ onBack }) {
     event.stopPropagation()
     setDraft(phrase.spanish)
     setEditingId(phrase.id)
+    setCreateMessage('')
     setIsImporting(false)
     setIsCreating(true)
   }
@@ -205,6 +274,7 @@ export default function MyPhrasesPrototype({ onBack }) {
     if (editingId === id) {
       setIsCreating(false)
       setEditingId(null)
+      setCreateMessage('')
     }
     if (expandedId === id) setExpandedId(null)
   }
@@ -270,29 +340,43 @@ export default function MyPhrasesPrototype({ onBack }) {
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              disabled={isCreating === 'saving'}
               className="mt-3 w-full rounded-2xl border border-white/10 bg-[#071827] px-4 py-4 text-base font-medium text-white outline-none placeholder:text-white/30 focus:border-[#B8FF2C]/50"
               placeholder="Escribe una frase que quieras practicar"
             />
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
               <button
                 onClick={savePhrase}
-                disabled={!canSaveDraft}
+                disabled={!canSaveDraft || isCreating === 'saving'}
                 className="rounded-2xl bg-[#B8FF2C] py-3 text-sm font-semibold text-[#06111F] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {isEditing ? 'Guardar' : 'Crear'}
+                {isCreating === 'saving' ? 'Creando con Sarah...' : isEditing ? 'Guardar' : 'Crear'}
               </button>
               <button
                 onClick={() => {
                   setIsCreating(false)
                   setEditingId(null)
                   setDraft('')
+                  setCreateMessage('')
                 }}
+                disabled={isCreating === 'saving'}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/70 active:scale-95"
               >
                 Cancelar
               </button>
             </div>
+            {createMessage && (
+              <p className="mt-3 rounded-2xl border border-[#F0B429]/20 bg-[#F0B429]/10 px-4 py-3 text-sm font-semibold leading-snug text-[#F0B429]">
+                {createMessage}
+              </p>
+            )}
           </section>
+        )}
+
+        {!isCreating && createMessage && (
+          <p className="mb-4 rounded-2xl border border-[#F0B429]/20 bg-[#F0B429]/10 px-4 py-3 text-sm font-semibold leading-snug text-[#F0B429]">
+            {createMessage}
+          </p>
         )}
 
         {isImporting && (
@@ -368,6 +452,12 @@ export default function MyPhrasesPrototype({ onBack }) {
                 {isExpanded && (
                   <div className="mt-3 border-t border-white/8 pt-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/35">
+                      Espanol original
+                    </p>
+                    <p className="mt-1 text-sm font-medium leading-snug text-white/70">
+                      {phrase.spanish || phrase.original_es || phrase.text}
+                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/35">
                       English natural version
                     </p>
                     <p className="mt-1 text-sm font-medium leading-snug text-[#B8FF2C]">
@@ -377,8 +467,18 @@ export default function MyPhrasesPrototype({ onBack }) {
                       Pronunciación
                     </p>
                     <p className="mt-1 text-sm font-semibold leading-snug text-white/65">
-                      {phrase.english ? phrase.pronunciation : 'Pendiente'}
+                      {phrase.english ? phrase.pronunciation_simple || phrase.pronunciation : 'Pendiente'}
                     </p>
+                    {phrase.notes && (
+                      <>
+                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-white/35">
+                          Nota de Sarah
+                        </p>
+                        <p className="mt-1 text-sm font-medium leading-snug text-white/65">
+                          {phrase.notes}
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </article>

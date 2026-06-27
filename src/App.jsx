@@ -11,11 +11,29 @@ import HomeArchitecturePrototype from './prototypes/HomeArchitecturePrototype.js
 import Phase2PronunciationTutorPrototype from './prototypes/Phase2PronunciationTutorPrototype.jsx'
 import Phase3VisualScenariosPrototype from './prototypes/Phase3VisualScenariosPrototype.jsx'
 
+console.time('App Boot')
+
 function isMobileRuntime() {
   if (typeof window === 'undefined') return false
 
   const userAgent = window.navigator?.userAgent || ''
   return window.innerWidth <= 768 || /android|iphone|ipad|ipod|mobile/i.test(userAgent)
+}
+
+function runAfterFirstRender(callback) {
+  const scheduleIdle = window.requestIdleCallback || ((handler) => window.setTimeout(handler, 0))
+  window.requestAnimationFrame(() => scheduleIdle(callback))
+}
+
+function hasStoredHomeCache() {
+  return (
+    hasCompletedOnboarding() ||
+    Boolean(localStorage.getItem('habloo_onboarding_v1')) ||
+    Boolean(localStorage.getItem('habloo_name')) ||
+    Boolean(localStorage.getItem('habloo_target_language')) ||
+    Boolean(localStorage.getItem('habloo_interests')) ||
+    Boolean(localStorage.getItem('habloo_tutor_name'))
+  )
 }
 
 const PROTOTYPE_HASH_ROUTES = {
@@ -158,7 +176,7 @@ function getInitialScreen() {
   const queryScreen = params.get('screen')
   if (queryScreen) return normalizeScreen(queryScreen)
 
-  return hasCompletedOnboarding() ? OFFICIAL_HOME_SCREEN : 'onboarding'
+  return hasStoredHomeCache() ? OFFICIAL_HOME_SCREEN : 'onboarding'
 }
 
 function normalizeScreen(screen) {
@@ -169,11 +187,16 @@ export default function App() {
   const isMobile = isMobileRuntime()
   const [screen, setScreen] = useState(getInitialScreen)
   const [guestId, setGuestId] = useState(() => localStorage.getItem('habloo_guest_id'))
-  const [onboarding, setOnboarding] = useState(getStoredOnboarding)
+  const [onboarding, setOnboarding] = useState(null)
 
   useEffect(() => {
     console.log('[Habloo performance] mobile runtime:', isMobile)
-    setGuestId(localStorage.getItem('habloo_guest_id'))
+    window.requestAnimationFrame(() => console.timeEnd('App Boot'))
+
+    runAfterFirstRender(() => {
+      setGuestId(localStorage.getItem('habloo_guest_id'))
+      setOnboarding(getStoredOnboarding())
+    })
   }, [isMobile])
 
   const navigate = (to) => {

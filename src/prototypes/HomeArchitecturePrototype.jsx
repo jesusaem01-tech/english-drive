@@ -66,6 +66,10 @@ const profileItems = [
 
 const fallbackInterests = ['Vida diaria', 'Trabajo', 'Viajes']
 let homeProfileMemoryCache = null
+let homeFirstRenderTimingStarted = false
+let homeFirstRenderTimingEnded = false
+let homeReadyTimingStarted = false
+let homeReadyTimingEnded = false
 
 function isMobileRuntime() {
   if (typeof window === 'undefined') return false
@@ -229,6 +233,11 @@ function getInterestPhaseRoute(interest) {
 }
 
 export default function HomeArchitecturePrototype({ onBack, onNavigate, onboarding }) {
+  if (!homeFirstRenderTimingStarted) {
+    homeFirstRenderTimingStarted = true
+    console.time("Home First Render")
+  }
+
   const didLogLoadRef = useRef(false)
   const isMobileRef = useRef(isMobileRuntime())
   const [profile, setProfile] = useState(() => getCachedHomeProfile(onboarding))
@@ -241,17 +250,29 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
   useEffect(() => {
     let ignore = false
     console.time('home-load')
+    if (!homeReadyTimingStarted) {
+      homeReadyTimingStarted = true
+      console.time("Home Ready")
+    }
     console.log('[Home performance] mobile runtime:', isMobileRef.current)
 
     window.requestAnimationFrame(() => {
       if (ignore || didLogLoadRef.current) return
       didLogLoadRef.current = true
       console.timeEnd('home-load')
+      if (!homeFirstRenderTimingEnded) {
+        homeFirstRenderTimingEnded = true
+        console.timeEnd("Home First Render")
+      }
     })
 
     const refreshProfile = () => {
       homeProfileMemoryCache = getHomeProfile(onboarding)
       setProfile(homeProfileMemoryCache)
+      if (!homeReadyTimingEnded) {
+        homeReadyTimingEnded = true
+        console.timeEnd("Home Ready")
+      }
     }
 
     runAfterFirstRender(refreshProfile)

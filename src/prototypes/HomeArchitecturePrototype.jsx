@@ -67,6 +67,18 @@ const profileItems = [
 const fallbackInterests = ['Vida diaria', 'Trabajo', 'Viajes']
 let homeProfileMemoryCache = null
 
+function isMobileRuntime() {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator?.userAgent || ''
+  return window.innerWidth <= 768 || /android|iphone|ipad|ipod|mobile/i.test(userAgent)
+}
+
+function runAfterFirstRender(callback) {
+  const scheduleIdle = window.requestIdleCallback || ((handler) => window.setTimeout(handler, 0))
+  window.requestAnimationFrame(() => scheduleIdle(callback))
+}
+
 const interestCategoryMap = {
   'vida diaria': 'daily_life',
   trabajo: 'work',
@@ -175,11 +187,41 @@ function getHomeProfile(onboarding) {
 }
 
 function getCachedHomeProfile(onboarding) {
-  if (!homeProfileMemoryCache) {
-    homeProfileMemoryCache = getHomeProfile(onboarding)
-  }
+  if (!homeProfileMemoryCache) return getImmediateHomeProfile(onboarding)
 
   return homeProfileMemoryCache
+}
+
+function getImmediateHomeProfile(onboarding) {
+  const saved = onboarding || {}
+  const name = saved?.name || localStorage.getItem('habloo_name') || 'Andres'
+  const tutor = localStorage.getItem('habloo_tutor_name') || saved?.tutor || 'Sarah'
+  const interests = saved?.interests?.length ? saved.interests : fallbackInterests
+
+  return {
+    name,
+    initial: name.charAt(0).toUpperCase(),
+    targetLanguage: formatTargetLanguage(saved?.targetLanguage || localStorage.getItem('habloo_target_language') || 'Inglés'),
+    level: saved?.level || localStorage.getItem('habloo_level') || 'No estoy seguro',
+    tutor,
+    activeTutors: saved?.activeTutors?.length ? saved.activeTutors : [tutor, 'Tutor IA'],
+    interests,
+    interestProgress: interests.map((interest) => ({
+      label: interest,
+      mastered: 0,
+      acquiredWords: 0,
+      available: TARGET_PER_INTEREST,
+    })),
+    customProgress: {
+      label: 'Mis Frases',
+      mastered: 0,
+      acquiredWords: 0,
+      available: 0,
+    },
+    coreUnitsKnown: 0,
+    customPhrasesCount: 0,
+    activePhrasesCount: interests.length * TARGET_PER_INTEREST,
+  }
 }
 
 function getInterestPhaseRoute(interest) {
@@ -188,6 +230,7 @@ function getInterestPhaseRoute(interest) {
 
 export default function HomeArchitecturePrototype({ onBack, onNavigate, onboarding }) {
   const didLogLoadRef = useRef(false)
+  const isMobileRef = useRef(isMobileRuntime())
   const [profile, setProfile] = useState(() => getCachedHomeProfile(onboarding))
   const coreProgress = (profile.coreUnitsKnown / totalWords) * 100
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -198,6 +241,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
   useEffect(() => {
     let ignore = false
     console.time('home-load')
+    console.log('[Home performance] mobile runtime:', isMobileRef.current)
 
     window.requestAnimationFrame(() => {
       if (ignore || didLogLoadRef.current) return
@@ -210,7 +254,7 @@ export default function HomeArchitecturePrototype({ onBack, onNavigate, onboardi
       setProfile(homeProfileMemoryCache)
     }
 
-    window.setTimeout(refreshProfile, 0)
+    runAfterFirstRender(refreshProfile)
     window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshProfile)
     window.addEventListener('storage', refreshProfile)
     return () => {

@@ -11,6 +11,13 @@ import HomeArchitecturePrototype from './prototypes/HomeArchitecturePrototype.js
 import Phase2PronunciationTutorPrototype from './prototypes/Phase2PronunciationTutorPrototype.jsx'
 import Phase3VisualScenariosPrototype from './prototypes/Phase3VisualScenariosPrototype.jsx'
 
+function isMobileRuntime() {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator?.userAgent || ''
+  return window.innerWidth <= 768 || /android|iphone|ipad|ipod|mobile/i.test(userAgent)
+}
+
 const PROTOTYPE_HASH_ROUTES = {
   '#/prototype-initial-phase1': 'prototype-initial-phase1',
   '#/prototype-learning-pool': 'prototype-learning-pool',
@@ -159,24 +166,30 @@ function normalizeScreen(screen) {
 }
 
 export default function App() {
+  const isMobile = isMobileRuntime()
   const [screen, setScreen] = useState(getInitialScreen)
   const [guestId, setGuestId] = useState(() => localStorage.getItem('habloo_guest_id'))
   const [onboarding, setOnboarding] = useState(getStoredOnboarding)
 
   useEffect(() => {
+    console.log('[Habloo performance] mobile runtime:', isMobile)
     setGuestId(localStorage.getItem('habloo_guest_id'))
-  }, [])
+  }, [isMobile])
 
   const navigate = (to) => {
     const nextScreen = normalizeScreen(to)
+    console.time('route-change')
     setScreen(nextScreen)
+    window.requestAnimationFrame(() => console.timeEnd('route-change'))
 
-    if (
-      window.speechSynthesis &&
-      (window.speechSynthesis.speaking || window.speechSynthesis.pending || window.speechSynthesis.paused)
-    ) {
-      window.setTimeout(() => window.speechSynthesis.cancel(), 0)
-    }
+    window.setTimeout(() => {
+      if (
+        window.speechSynthesis &&
+        (window.speechSynthesis.speaking || window.speechSynthesis.pending || window.speechSynthesis.paused)
+      ) {
+        window.speechSynthesis.cancel()
+      }
+    }, 0)
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }))
   }
 
@@ -189,7 +202,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A1628] text-[#F0B429] flex flex-col">
+    <div className={`min-h-screen bg-[#0A1628] text-[#F0B429] flex flex-col ${isMobile ? 'mobile-runtime-performance' : ''}`}>
       {screen === 'onboarding' && <Onboarding onComplete={completeOnboarding} />}
       {screen === 'phase1' && (
         <InitialPhase1ListeningPrototype

@@ -14,6 +14,18 @@ const SPEED_OPTIONS = [
   { id: 'normal', label: '1.0x', rate: 1.0, status: 'Normal' },
   { id: 'fast', label: '1.25x', rate: 1.25, status: 'Rápido' },
 ]
+function isMobileRuntime() {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator?.userAgent || ''
+  return window.innerWidth <= 768 || /android|iphone|ipad|ipod|mobile/i.test(userAgent)
+}
+
+function runAfterFirstRender(callback) {
+  const scheduleIdle = window.requestIdleCallback || ((handler) => window.setTimeout(handler, 0))
+  window.requestAnimationFrame(() => scheduleIdle(callback))
+}
+
 const MOBILE_SPEECH_RATE_OVERRIDES = {
   0.5: 0.45,
   0.75: 0.65,
@@ -689,10 +701,11 @@ function ensureTargetSentenceCount(items, category, label) {
   return result
 }
 
-function createPhase1PoolCachePayload({ learningSet, categoryConfigs, categorySets, customPhraseTotal, signature }) {
+function createPhase1PoolCachePayload({ learningSet, categoryConfigs, categorySets, customPhraseTotal, signature, cacheHit }) {
   return {
     version: PHASE1_PHRASE_POOL_CACHE_VERSION,
     signature,
+    cacheHit,
     cachedAt: Date.now(),
     learningSet,
     customPhraseTotal,
@@ -716,6 +729,7 @@ function readPhase1PoolCache(signature = getPhase1PoolSignature(), { allowStale 
       selectedInterestTotal: Number(phase1PoolMemoryCache.selectedInterestTotal) || 0,
       sourceNotes: Array.isArray(phase1PoolMemoryCache.sourceNotes) ? phase1PoolMemoryCache.sourceNotes : [],
       signature: phase1PoolMemoryCache.signature,
+      cacheHit: true,
     }
   }
 
@@ -732,6 +746,7 @@ function readPhase1PoolCache(signature = getPhase1PoolSignature(), { allowStale 
       selectedInterestTotal: Number(parsed.selectedInterestTotal) || 0,
       sourceNotes: Array.isArray(parsed.sourceNotes) ? parsed.sourceNotes : [],
       signature: parsed.signature,
+      cacheHit: true,
     }
   } catch {
     return null
@@ -780,6 +795,7 @@ function createImmediatePhase1Pool(signature = getPhase1PoolSignature()) {
     categorySets,
     customPhraseTotal: learningSet.filter((sentence) => sentence.category === 'custom_phrases').length,
     signature,
+    cacheHit: false,
   })
 }
 
@@ -886,9 +902,11 @@ function selectTutorVoice(voices, tutorProfile) {
 // Prototype note: Phase 2 should reuse this same combined 60-sentence learning set
 // for pronunciation practice after the Phase 1 listening flow is approved.
 export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhase2, isPrototype = false }) {
+  const isMobileRef = useRef(isMobileRuntime())
   const initialPreferencesRef = useRef(loadPhase1Preferences())
   const initialPoolCacheRef = useRef(getInitialPhase1Pool())
   const didLogLoadRef = useRef(false)
+  const shouldSkipInitialPoolRefreshRef = useRef(Boolean(initialPoolCacheRef.current?.cacheHit))
   const [sentences, setSentences] = useState(() => initialPoolCacheRef.current?.learningSet || [])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [repeat, setRepeat] = useState(1)
@@ -921,6 +939,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   const repeatTargetRef = useRef(initialPreferencesRef.current.repetitions)
   const speechRateRef = useRef(initialPreferencesRef.current.speed)
   const utteranceRef = useRef(null)
+  const tutorVoiceRef = useRef(null)
+  const tutorProfileRef = useRef(null)
   const timeoutRef = useRef(null)
   const translationTimeoutRef = useRef(null)
   const wordTimerRef = useRef(null)
@@ -1032,6 +1052,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   useEffect(() => {
     let ignore = false
     console.time('phase1-load')
+    console.log('[Fase1 performance] mobile runtime:', isMobileRef.current)
 
     window.requestAnimationFrame(() => {
       if (ignore || didLogLoadRef.current) return
@@ -1041,16 +1062,18 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
     async function loadAndApply() {
       if (ignore) return
+      if (shouldSkipInitialPoolRefreshRef.current) return
       await loadInitialSet({ resetSession: false, allowStaleCache: false, showLoading: false })
     }
 
-    window.setTimeout(loadAndApply, 0)
+    runAfterFirstRender(loadAndApply)
 
     const reloadWhenPoolInputsChange = (event) => {
       if (event?.type === 'storage' && !['habloo_interests', CUSTOM_PHRASES_KEY].includes(event.key)) return
       const nextSignature = getPhase1PoolSignature()
       if (nextSignature === poolSignatureRef.current) return
-      loadInitialSet({ allowStaleCache: false, showLoading: false })
+      shouldSkipInitialPoolRefreshRef.current = false
+      runAfterFirstRender(() => loadInitialSet({ allowStaleCache: false, showLoading: false }))
     }
 
     window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, reloadWhenPoolInputsChange)
@@ -1248,6 +1271,18 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     }, estimatedMs)
   }, [])
 
+  const getTutorVoiceForPlayback = useCallback(() => {
+    if (tutorVoiceRef.current) return tutorVoiceRef.current
+    if (!window.speechSynthesis) return null
+
+    if (!tutorProfileRef.current) {
+      tutorProfileRef.current = getStoredTutorProfile()
+    }
+
+    tutorVoiceRef.current = selectTutorVoice(window.speechSynthesis.getVoices(), tutorProfileRef.current)
+    return tutorVoiceRef.current
+  }, [])
+
   const speakPhrase = useCallback((phraseIndex, repeatCount = 1) => {
     if (!window.speechSynthesis || sentences.length === 0) {
       finishAutoPlay()
@@ -1303,7 +1338,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     const utterance = new SpeechSynthesisUtterance(sentence.sentence_en)
     utterance.lang = 'en-US'
     utterance.rate = effectiveSpeechRate
-    const tutorVoice = selectTutorVoice(window.speechSynthesis.getVoices(), getStoredTutorProfile())
+    const tutorVoice = getTutorVoiceForPlayback()
     if (tutorVoice) {
       utterance.voice = tutorVoice
       utterance.lang = tutorVoice.lang || utterance.lang
@@ -1429,7 +1464,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       setActiveWordIndex(null)
       setNeedsAutoplayGesture(true)
     }, 850)
-  }, [cancelCurrentSpeech, finishAutoPlay, hideTranslation, sentences, startEstimatedWordTimer])
+  }, [cancelCurrentSpeech, finishAutoPlay, getTutorVoiceForPlayback, hideTranslation, sentences, startEstimatedWordTimer])
 
   const startAutoPlay = () => {
     if (!currentSentence) return
@@ -1448,6 +1483,13 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   }
 
   useEffect(() => {
+    if (isMobileRef.current && initialPreferencesRef.current.autoPlay) {
+      setIsAutoPlayOn(false)
+      isAutoPlayRef.current = false
+      setNeedsAutoplayGesture(true)
+      return
+    }
+
     if (
       loading ||
       !initialPreferencesRef.current.autoPlay ||

@@ -32,6 +32,11 @@ const fallbackInterests = ['Vida diaria', 'Trabajo', 'Viajes']
 let learningPoolMemoryCache = null
 let learningPoolProfileMemoryCache = null
 
+function runAfterFirstRender(callback) {
+  const scheduleIdle = window.requestIdleCallback || ((handler) => window.setTimeout(handler, 0))
+  window.requestAnimationFrame(() => scheduleIdle(callback))
+}
+
 const interestCategoryMap = {
   'vida diaria': 'daily_life',
   trabajo: 'work',
@@ -200,8 +205,53 @@ function getLearningPoolBag() {
 }
 
 function getCachedLearningPoolBag() {
-  if (!learningPoolMemoryCache) learningPoolMemoryCache = getLearningPoolBag()
+  if (!learningPoolMemoryCache) return getImmediateLearningPoolBag()
   return learningPoolMemoryCache
+}
+
+function getImmediateLearningPoolBag() {
+  const saved = getStoredOnboarding() || {}
+  const tutorName = localStorage.getItem('habloo_tutor_name') || saved?.tutor || 'Sarah'
+  const interests = Array.isArray(saved?.interests) && saved.interests.length > 0
+    ? saved.interests.filter(Boolean)
+    : fallbackInterests
+  const language = formatLanguage(saved?.targetLanguage || localStorage.getItem('habloo_target_language') || 'Inglés')
+  const activeInterests = interests.map((interest, index) => ({
+    name: interest,
+    current: 0,
+    acquiredWords: 0,
+    total: TARGET_PER_INTEREST,
+    color: interestColors[index % interestColors.length],
+    route: 'prototype-initial-phase1',
+  }))
+
+  return {
+    name: language.name,
+    flag: language.flag,
+    label: language.label,
+    state: 'Activo',
+    coreUnits: 0,
+    phrases: 0,
+    tutors: buildTutors([tutorName]),
+    tutorName,
+    interests: activeInterests,
+    lockedInterests: [],
+    customProgress: {
+      name: 'Mis Frases',
+      current: 0,
+      acquiredWords: 0,
+      total: 0,
+      color: 'from-[#F0B429] to-[#D946EF]',
+      route: 'prototype-my-phrases',
+    },
+    summary: `${interests.length} intereses · ${interests.length * TARGET_PER_INTEREST} frases + Mis Frases 0`,
+    stats: [
+      { value: String(interests.length), label: 'intereses activos' },
+      { value: '0', label: 'palabras adquiridas' },
+      { value: '0', label: 'Mis Frases' },
+      { value: tutorName, label: 'tutor activo' },
+    ],
+  }
 }
 
 const languageContexts = [
@@ -316,7 +366,14 @@ function getProfile() {
 }
 
 function getCachedProfile() {
-  if (!learningPoolProfileMemoryCache) learningPoolProfileMemoryCache = getProfile()
+  if (!learningPoolProfileMemoryCache) {
+    const saved = getStoredOnboarding() || {}
+    const name = saved?.name || localStorage.getItem('habloo_name') || 'Andres'
+    return {
+      initial: name.charAt(0).toUpperCase(),
+    }
+  }
+
   return learningPoolProfileMemoryCache
 }
 
@@ -390,7 +447,7 @@ export default function LearningPoolPrototype({ onBack, onNavigate }) {
       setProfile(learningPoolProfileMemoryCache)
     }
 
-    window.setTimeout(refreshCachedState, 0)
+    runAfterFirstRender(refreshCachedState)
     window.addEventListener(CUSTOM_PHRASES_CHANGED_EVENT, refreshCachedState)
     window.addEventListener('storage', refreshCachedState)
     return () => {

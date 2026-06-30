@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { sentences as realEstateLocalSentences } from '../data/sentences.js'
-import { isSpeaking, speak, stop } from '../services/speechService.js'
+import { clearQueue, isSpeaking, pause, preload, resume, speak, stop } from '../services/speechService.js'
 import { fetchContentSentences } from '../utils/contentApi.js'
 
 const TARGET_PER_CATEGORY = 20
 const OWNER_MODE = true
+const PRELOAD_AHEAD_COUNT = 3
+const DEFAULT_TUTOR_AUDIO_ID = 'sarah_default'
 const DEFAULT_REPEAT_TARGET = 3
 const MIN_REPEAT_TARGET = 1
 const MAX_REPEAT_TARGET = 10
@@ -882,6 +884,27 @@ function getNextUnplayedIndex({ length, currentIndex, playedIndices, isShuffleOn
   return unplayed.find((index) => index > currentIndex) ?? unplayed[0]
 }
 
+function getPreloadIndexes({ length, currentIndex, playedIndices, isShuffleOn, limit = PRELOAD_AHEAD_COUNT }) {
+  if (length <= 1 || !Number.isInteger(currentIndex)) return []
+
+  const playedSet = new Set(playedIndices)
+  playedSet.add(currentIndex)
+
+  if (isShuffleOn) {
+    return createNormalOrder(length)
+      .filter((index) => index !== currentIndex && !playedSet.has(index))
+      .slice(0, limit)
+  }
+
+  const indexes = []
+  for (let offset = 1; offset < length && indexes.length < limit; offset += 1) {
+    const index = (currentIndex + offset) % length
+    if (!playedSet.has(index)) indexes.push(index)
+  }
+
+  return indexes
+}
+
 function selectTutorVoice(voices, tutorProfile) {
   const englishVoices = voices.filter((voice) => voice.lang?.toLowerCase().startsWith('en'))
   const candidates = englishVoices.length > 0 ? englishVoices : voices
@@ -955,6 +978,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       if (cachedPool) {
         const learningSet = cachedPool.learningSet
         warnMissingPrototypePronunciations(learningSet)
+        clearQueue()
         setSentences(learningSet)
         setCustomPhraseTotal(cachedPool.customPhraseTotal)
         setSelectedInterestTotal(cachedPool.selectedInterestTotal)
@@ -1024,6 +1048,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
         })
       )
       warnMissingPrototypePronunciations(learningSet)
+      clearQueue()
       setSentences(learningSet)
       setCustomPhraseTotal(validCustomPhraseTotal)
       setSelectedInterestTotal(categoryConfigs.length)
@@ -1211,6 +1236,35 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setActiveWordIndex(null)
   }, [])
 
+  const pauseCurrentSpeech = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = null
+    if (wordTimerRef.current) clearInterval(wordTimerRef.current)
+    wordTimerRef.current = null
+    if (speechStartTimeoutRef.current) clearTimeout(speechStartTimeoutRef.current)
+    speechStartTimeoutRef.current = null
+    const pausedActiveAudio = pause()
+    if (!pausedActiveAudio) {
+      stop()
+      utteranceRef.current = null
+    }
+    setActiveWordIndex(null)
+  }, [])
+
+  const preloadUpcomingPhrases = useCallback((phraseIndex) => {
+    const indexes = getPreloadIndexes({
+      length: sentences.length,
+      currentIndex: phraseIndex,
+      playedIndices: playedIndicesRef.current,
+      isShuffleOn: isShuffleOnRef.current,
+    })
+
+    indexes.forEach((index) => {
+      const text = sentences[index]?.sentence_en
+      if (text) preload(text, DEFAULT_TUTOR_AUDIO_ID)
+    })
+  }, [sentences])
+
   const stopSpeech = useCallback(({ persistAutoPlay = true } = {}) => {
     isPlayingRef.current = false
     isAutoPlayRef.current = false
@@ -1232,8 +1286,8 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setNeedsAutoplayGesture(false)
     savePhase1Preferences({ autoPlay: false })
     hideTranslation()
-    cancelCurrentSpeech()
-  }, [cancelCurrentSpeech, hideTranslation])
+    pauseCurrentSpeech()
+  }, [hideTranslation, pauseCurrentSpeech])
 
   const finishAutoPlay = useCallback(() => {
     isPlayingRef.current = false
@@ -1334,6 +1388,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     const speech = speak(sentence.sentence_en, {
       lang: 'en-US',
       rate: effectiveSpeechRate,
+      tutorId: DEFAULT_TUTOR_AUDIO_ID,
       onReady: (playback) => {
         currentSpeech = playback
         utteranceRef.current = playback
@@ -1445,6 +1500,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       repeatCount,
       autoPlay: isAutoPlayRef.current,
     })
+    preloadUpcomingPhrases(phraseIndex)
 
     speechStartTimeoutRef.current = window.setTimeout(() => {
       if (utteranceRef.current !== currentSpeech || hasSpeechStarted) return
@@ -1462,10 +1518,22 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       setActiveWordIndex(null)
       setNeedsAutoplayGesture(true)
     }, 850)
-  }, [cancelCurrentSpeech, finishAutoPlay, getTutorVoiceForPlayback, hideTranslation, sentences, startEstimatedWordTimer])
+  }, [cancelCurrentSpeech, finishAutoPlay, getTutorVoiceForPlayback, hideTranslation, preloadUpcomingPhrases, sentences, startEstimatedWordTimer])
 
   const startAutoPlay = () => {
     if (!currentSentence) return
+    if (isPaused && utteranceRef.current) {
+      setNeedsAutoplayGesture(false)
+      isPlayingRef.current = true
+      isAutoPlayRef.current = true
+      setIsPlaying(true)
+      setIsPaused(false)
+      setIsAutoPlayOn(true)
+      savePhase1Preferences({ autoPlay: true })
+      resume()
+      preloadUpcomingPhrases(currentIndex)
+      return
+    }
     if (hasCompletedCurrentBag || isPlayingRef.current || utteranceRef.current) return
     setNeedsAutoplayGesture(false)
     isPlayingRef.current = true
@@ -1514,6 +1582,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
   const toggleShuffle = () => {
     stopSpeech()
+    clearQueue()
     const nextShuffleState = !isShuffleOn
 
     setIsShuffleOn(nextShuffleState)
@@ -1536,6 +1605,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setNavigationHistory(nextHistory)
 
     stopSpeech()
+    clearQueue()
     currentIndexRef.current = previousIndex
     repeatRef.current = 1
     setCurrentIndex(() => previousIndex)
@@ -1543,6 +1613,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     setIsBagCompleted(playedIndicesRef.current.length >= sentences.length)
     hideTranslation()
     setActiveWordIndex(null)
+    preloadUpcomingPhrases(previousIndex)
   }
 
   const goToNext = () => {
@@ -1561,9 +1632,11 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
     if (nextIndex === null) {
       setIsBagCompleted(true)
       stopSpeech({ persistAutoPlay: false })
+      clearQueue()
       return
     }
 
+    clearQueue()
     const shouldContinueAutoPlay = isAutoPlayRef.current || isAutoPlayOn
     if (shouldContinueAutoPlay) {
       cancelCurrentSpeech()
@@ -1577,6 +1650,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
       stopSpeech()
     }
     moveToPhrase(nextIndex)
+    preloadUpcomingPhrases(nextIndex)
     if (shouldContinueAutoPlay) {
       console.log('[Fase1 autoplay]', {
         currentIndex,
@@ -1590,6 +1664,7 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
 
   const repeatPhase1 = () => {
     stopSpeech({ persistAutoPlay: false })
+    clearQueue()
     currentIndexRef.current = 0
     repeatRef.current = 1
     playedIndicesRef.current = []
@@ -1609,7 +1684,10 @@ export default function InitialPhase1ListeningPrototype({ onBack, onContinuePhas
   }
 
   useEffect(() => {
-    return () => stopSpeech({ persistAutoPlay: false })
+    return () => {
+      stopSpeech({ persistAutoPlay: false })
+      clearQueue()
+    }
   }, [stopSpeech])
 
   useEffect(() => {

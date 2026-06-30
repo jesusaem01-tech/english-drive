@@ -3,6 +3,14 @@ import { API_BASE_URL } from '../utils/apiConfig.js'
 let currentAudio = null
 let currentAudioUrl = null
 let playbackToken = 0
+const DEFAULT_TUTOR_ID = 'sarah_default'
+const audioCache = new Map()
+let preloadController = null
+let queueVersion = 0
+
+function getCacheKey(text, tutorId = DEFAULT_TUTOR_ID) {
+  return `${tutorId}::${text}`
+}
 
 function getSpeechSynthesis() {
   if (typeof window === 'undefined') return null
@@ -29,6 +37,62 @@ function clearCurrentAudio() {
     currentAudio = null
   }
   revokeCurrentAudioUrl()
+}
+
+async function fetchTutorAudio(text, tutorId, signal) {
+  const response = await fetch(`${API_BASE_URL}/tutors/speak`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tutor_id: tutorId,
+      text,
+    }),
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Tutor audio request failed with ${response.status}`)
+  }
+
+  return response.blob()
+}
+
+export function preload(text, tutorId = DEFAULT_TUTOR_ID) {
+  if (!text) return null
+
+  const key = getCacheKey(text, tutorId)
+  const cached = audioCache.get(key)
+  if (cached?.blob) return Promise.resolve(cached.blob)
+  if (cached?.promise) return cached.promise
+
+  if (!preloadController) preloadController = new AbortController()
+
+  const version = queueVersion
+  const promise = fetchTutorAudio(text, tutorId, preloadController.signal)
+    .then((blob) => {
+      if (version !== queueVersion) return null
+      audioCache.set(key, { blob })
+      return blob
+    })
+    .catch((error) => {
+      if (version === queueVersion) audioCache.delete(key)
+      if (error?.name !== 'AbortError') {
+        console.warn('[speechService] Audio preload failed', error)
+      }
+      return null
+    })
+
+  audioCache.set(key, { promise })
+  return promise
+}
+
+export function clearQueue() {
+  queueVersion += 1
+  if (preloadController) {
+    preloadController.abort()
+    preloadController = null
+  }
+  audioCache.clear()
 }
 
 function speakWithSpeechSynthesis(text, options = {}) {
@@ -63,23 +127,13 @@ function speakWithSpeechSynthesis(text, options = {}) {
 }
 
 async function speakWithTutorAudio(text, options, token, playback) {
+  const tutorId = options.tutorId || DEFAULT_TUTOR_ID
+
   try {
     options.onstart?.()
-
-    const response = await fetch(`${API_BASE_URL}/tutors/speak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tutor_id: 'sarah_default',
-        text,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Tutor audio request failed with ${response.status}`)
-    }
-
-    const audioBlob = await response.blob()
+    const key = getCacheKey(text, tutorId)
+    const cached = audioCache.get(key)
+    const audioBlob = cached?.blob || await (cached?.promise || fetchTutorAudio(text, tutorId))
     if (token !== playbackToken) return null
 
     const audioUrl = URL.createObjectURL(audioBlob)
@@ -149,11 +203,16 @@ export function stop() {
 export function pause() {
   if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
     currentAudio.pause()
-    return
+    return true
   }
 
   const speechSynthesis = getSpeechSynthesis()
-  if (speechSynthesis?.speaking) speechSynthesis.pause()
+  if (speechSynthesis?.speaking) {
+    speechSynthesis.pause()
+    return true
+  }
+
+  return false
 }
 
 export function resume() {

@@ -1,1 +1,1 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.habloo.app'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://backend.habloo.app'
